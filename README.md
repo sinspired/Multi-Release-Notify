@@ -28,7 +28,7 @@ jobs:
         run: echo "Building..."
 
       - name: Notify on Completion
-        uses: HasanHajHasan/multi-notify@v1
+        uses: HasanHajHasan/multi-channel-notification@v1
         if: always()
         with:
           status: ${{ job.status }}
