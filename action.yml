@@ -1,0 +1,227 @@
+name: 'Multi-Channel Notification'
+description: 'Send notifications to Slack, Telegram, and Email using Apprise with customizable templates'
+author: 'HHH'
+
+branding:
+  icon: 'bell'
+  color: 'blue'
+
+inputs:
+  status:
+    description: 'Job status (success, failure, cancelled, or custom)'
+    required: false
+    default: 'failure'
+  job_name:
+    description: 'Name of the job that triggered notification'
+    required: false
+    default: ${{ github.job }}
+  channels:
+    description: 'Comma-separated list of channels: slack,telegram,email'
+    required: false
+    default: 'slack'
+  title:
+    description: 'Custom notification title (overrides default)'
+    required: false
+    default: ''
+  message:
+    description: 'Custom message body (overrides default)'
+    required: false
+    default: ''
+  slack_template:
+    description: 'Path to custom Slack template (relative to repo root)'
+    required: false
+    default: ''
+  telegram_template:
+    description: 'Path to custom Telegram template'
+    required: false
+    default: ''
+  email_template:
+    description: 'Path to custom email template'
+    required: false
+    default: ''
+  slack_url:
+    description: 'Slack apprise URL (e.g., slack://botname@token1/token2/token3/#channel)'
+    required: false
+    default: ''
+  telegram_url:
+    description: 'Telegram apprise URL (e.g., tgram://bottoken/chatid)'
+    required: false
+    default: ''
+  email_url:
+    description: 'Email apprise URL (e.g., mailto://user:pass@domain.com)'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Apprise
+      shell: bash
+      run: pipx install apprise
+
+    - name: Prepare Notification Data
+      id: prepare
+      shell: bash
+      run: |
+        # Set emoji based on status
+        case "${{ inputs.status }}" in
+          success)
+            echo "emoji=🟢" >> $GITHUB_OUTPUT
+            echo "color=success" >> $GITHUB_OUTPUT
+            ;;
+          failure)
+            echo "emoji=🔴" >> $GITHUB_OUTPUT
+            echo "color=danger" >> $GITHUB_OUTPUT
+            ;;
+          cancelled)
+            echo "emoji=⚪️" >> $GITHUB_OUTPUT
+            echo "color=warning" >> $GITHUB_OUTPUT
+            ;;
+          *)
+            echo "emoji=🔵" >> $GITHUB_OUTPUT
+            echo "color=info" >> $GITHUB_OUTPUT
+            ;;
+        esac
+
+        # Set default title if not provided
+        if [ -z "${{ inputs.title }}" ]; then
+          TITLE="${{ inputs.status }} - ${{ inputs.job_name }}"
+        else
+          TITLE="${{ inputs.title }}"
+        fi
+        echo "title=$TITLE" >> $GITHUB_OUTPUT
+
+        # Set default message if not provided
+        if [ -z "${{ inputs.message }}" ]; then
+          cat << 'EOF' >> $GITHUB_OUTPUT
+        message<<EOFMSG
+        Repository: ${{ github.repository }}
+        Branch: ${{ github.ref_name }}
+        Workflow: ${{ github.workflow }}
+        Job: ${{ inputs.job_name }}
+        Commit: ${{ github.sha }}
+        Author: ${{ github.actor }}
+
+        View Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        EOFMSG
+        EOF
+        else
+          cat << 'EOF' >> $GITHUB_OUTPUT
+        message<<EOFMSG
+        ${{ inputs.message }}
+        EOFMSG
+        EOF
+        fi
+
+    - name: Check Templates
+      id: templates
+      shell: bash
+      run: |
+        # Check if custom templates exist
+        # If user provides custom message without custom template, skip default template
+        if [ -n "${{ inputs.slack_template }}" ] && [ -f "${{ inputs.slack_template }}" ]; then
+          echo "slack_template=${{ inputs.slack_template }}" >> $GITHUB_OUTPUT
+        elif [ -z "${{ inputs.message }}" ] && [ -f "${{ github.action_path }}/templates/slack.txt" ]; then
+          echo "slack_template=${{ github.action_path }}/templates/slack.txt" >> $GITHUB_OUTPUT
+        else
+          echo "slack_template=" >> $GITHUB_OUTPUT
+        fi
+
+        if [ -n "${{ inputs.telegram_template }}" ] && [ -f "${{ inputs.telegram_template }}" ]; then
+          echo "telegram_template=${{ inputs.telegram_template }}" >> $GITHUB_OUTPUT
+        elif [ -z "${{ inputs.message }}" ] && [ -f "${{ github.action_path }}/templates/telegram.txt" ]; then
+          echo "telegram_template=${{ github.action_path }}/templates/telegram.txt" >> $GITHUB_OUTPUT
+        else
+          echo "telegram_template=" >> $GITHUB_OUTPUT
+        fi
+
+        if [ -n "${{ inputs.email_template }}" ] && [ -f "${{ inputs.email_template }}" ]; then
+          echo "email_template=${{ inputs.email_template }}" >> $GITHUB_OUTPUT
+        elif [ -z "${{ inputs.message }}" ] && [ -f "${{ github.action_path }}/templates/email.html" ]; then
+          echo "email_template=${{ github.action_path }}/templates/email.html" >> $GITHUB_OUTPUT
+        else
+          echo "email_template=" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Send Slack Notification
+      if: contains(inputs.channels, 'slack') && inputs.slack_url != ''
+      shell: bash
+      run: |
+        if [ -n "${{ steps.templates.outputs.slack_template }}" ]; then
+          BODY=$(cat "${{ steps.templates.outputs.slack_template }}")
+          BODY="${BODY//\{EMOJI\}/${{ steps.prepare.outputs.emoji }}}"
+          BODY="${BODY//\{STATUS\}/${{ inputs.status }}}"
+          BODY="${BODY//\{TITLE\}/${{ steps.prepare.outputs.title }}}"
+          BODY="${BODY//\{MESSAGE\}/${{ steps.prepare.outputs.message }}}"
+          BODY="${BODY//\{REPOSITORY\}/${{ github.repository }}}"
+          BODY="${BODY//\{BRANCH\}/${{ github.ref_name }}}"
+          BODY="${BODY//\{WORKFLOW\}/${{ github.workflow }}}"
+          BODY="${BODY//\{JOB\}/${{ inputs.job_name }}}"
+          BODY="${BODY//\{COMMIT\}/${{ github.sha }}}"
+          BODY="${BODY//\{AUTHOR\}/${{ github.actor }}}"
+          BODY="${BODY//\{RUN_URL\}/${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
+        else
+          BODY="${{ steps.prepare.outputs.message }}"
+        fi
+
+        apprise -vv \
+          -t "${{ steps.prepare.outputs.emoji }} ${{ steps.prepare.outputs.title }}" \
+          -b "$BODY" \
+          "${{ inputs.slack_url }}"
+
+    - name: Send Telegram Notification
+      if: contains(inputs.channels, 'telegram') && inputs.telegram_url != ''
+      shell: bash
+      run: |
+        if [ -n "${{ steps.templates.outputs.telegram_template }}" ]; then
+          BODY=$(cat "${{ steps.templates.outputs.telegram_template }}")
+          BODY="${BODY//\{EMOJI\}/${{ steps.prepare.outputs.emoji }}}"
+          BODY="${BODY//\{STATUS\}/${{ inputs.status }}}"
+          BODY="${BODY//\{TITLE\}/${{ steps.prepare.outputs.title }}}"
+          BODY="${BODY//\{MESSAGE\}/${{ steps.prepare.outputs.message }}}"
+          BODY="${BODY//\{REPOSITORY\}/${{ github.repository }}}"
+          BODY="${BODY//\{BRANCH\}/${{ github.ref_name }}}"
+          BODY="${BODY//\{WORKFLOW\}/${{ github.workflow }}}"
+          BODY="${BODY//\{JOB\}/${{ inputs.job_name }}}"
+          BODY="${BODY//\{COMMIT\}/${{ github.sha }}}"
+          BODY="${BODY//\{AUTHOR\}/${{ github.actor }}}"
+          BODY="${BODY//\{RUN_URL\}/${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
+        else
+          BODY="${{ steps.prepare.outputs.message }}"
+        fi
+
+        apprise -vv \
+          -t "${{ steps.prepare.outputs.emoji }} ${{ steps.prepare.outputs.title }}" \
+          -b "$BODY" \
+          "${{ inputs.telegram_url }}"
+
+    - name: Send Email Notification
+      if: contains(inputs.channels, 'email') && inputs.email_url != ''
+      shell: bash
+      run: |
+        if [ -n "${{ steps.templates.outputs.email_template }}" ]; then
+          BODY=$(cat "${{ steps.templates.outputs.email_template }}")
+          BODY="${BODY//\{EMOJI\}/${{ steps.prepare.outputs.emoji }}}"
+          BODY="${BODY//\{STATUS\}/${{ inputs.status }}}"
+          BODY="${BODY//\{TITLE\}/${{ steps.prepare.outputs.title }}}"
+          BODY="${BODY//\{MESSAGE\}/${{ steps.prepare.outputs.message }}}"
+          BODY="${BODY//\{REPOSITORY\}/${{ github.repository }}}"
+          BODY="${BODY//\{BRANCH\}/${{ github.ref_name }}}"
+          BODY="${BODY//\{WORKFLOW\}/${{ github.workflow }}}"
+          BODY="${BODY//\{JOB\}/${{ inputs.job_name }}}"
+          BODY="${BODY//\{COMMIT\}/${{ github.sha }}}"
+          BODY="${BODY//\{AUTHOR\}/${{ github.actor }}}"
+          BODY="${BODY//\{RUN_URL\}/${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}}"
+        else
+          BODY="${{ steps.prepare.outputs.message }}"
+        fi
+
+        apprise -vv \
+          -t "${{ steps.prepare.outputs.emoji }} ${{ steps.prepare.outputs.title }}" \
+          -b "$BODY" \
+          "${{ inputs.email_url }}"
