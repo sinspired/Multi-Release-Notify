@@ -1,0 +1,22 @@
+name: Action self-test
+
+on:
+    workflow_dispatch: {}
+    push:
+        branches: [main]
+
+jobs:
+    self-test:
+        name: Run local action test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - name: Run local action with ntfy test topic
+              uses: ./
+              with:
+                  version: v0.0.1
+                  release_url: https://github.com/example/example/releases/tag/v0.0.1
+                  release_notes: |
+                      Local test run for action validation.
+                  author: github-actions
+                  urls: ntfy://github-multi-release-notify-test

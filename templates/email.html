@@ -1,116 +1,86 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 8px 8px 0 0;
-            margin: -20px -20px 20px -20px;
-        }
-        .header.success {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        }
-        .header.failure {
-            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-        }
-        .content {
-            background: #f9f9f9;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        .info-row {
-            margin: 10px 0;
-            padding: 8px;
-            background: white;
-            border-radius: 4px;
-        }
-        .label {
-            font-weight: 600;
-            color: #666;
-            display: inline-block;
-            width: 100px;
-        }
-        .value {
-            color: #333;
-        }
-        .code {
-            background: #e9ecef;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: 'Monaco', 'Courier New', monospace;
-            font-size: 13px;
-        }
-        .button {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-        .message {
-            background: white;
-            padding: 15px;
-            border-radius: 4px;
-            border-left: 4px solid #667eea;
-            margin: 15px 0;
-            white-space: pre-wrap;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{TITLE}</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f2f5;
+           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .wrapper { max-width: 600px; margin: 30px auto; background: #fff;
+               border-radius: 12px; overflow: hidden;
+               box-shadow: 0 2px 16px rgba(0,0,0,0.08); }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #0f9d58 0%, #34a853 100%);
+              padding: 32px 28px 28px; color: white; }
+    .header-top { display: flex; justify-content: space-between;
+                  align-items: flex-start; margin-bottom: 16px; }
+    .repo-label { font-size: 13px; opacity: 0.85; font-weight: 500; }
+    .status-pill { background: rgba(255,255,255,0.22);
+                   border: 1px solid rgba(255,255,255,0.45);
+                   padding: 3px 11px; border-radius: 20px;
+                   font-size: 11px; font-weight: 700;
+                   text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+    .version-hero { font-family: 'SFMono-Regular', Consolas, monospace;
+                    font-size: 42px; font-weight: 800;
+                    letter-spacing: -1px; line-height: 1; margin-bottom: 12px; }
+    .release-by { margin: 0; font-size: 14px; opacity: 0.80; }
+    .release-by strong { font-weight: 600; opacity: 1; }
+
+    /* Release Notes */
+    .body-section { padding: 24px 28px; }
+    .notes-card { background: #f8fafc; border: 1px solid #e2e8f0;
+                  border-left: 3px solid #34a853;
+                  border-radius: 0 8px 8px 0; padding: 16px 18px;
+                  margin-bottom: 24px; }
+    .notes-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: 1px; color: #94a3b8; margin-bottom: 10px; }
+    .notes-content { font-size: 14px; color: #374151;
+                     line-height: 1.75; white-space: pre-wrap; }
+
+    /* CTA */
+    .cta-wrap { text-align: center; }
+    .btn { display: inline-block;
+           background: linear-gradient(135deg, #0f9d58, #34a853);
+           color: #fff !important; text-decoration: none;
+           padding: 13px 32px; border-radius: 7px;
+           font-weight: 700; font-size: 14px; }
+
+    /* Footer */
+    .footer { text-align: center; padding: 18px 28px;
+              border-top: 1px solid #f1f5f9;
+              color: #94a3b8; font-size: 12px; }
+    .footer a { color: #64748b; text-decoration: none; }
+  </style>
 </head>
 <body>
-    <div class="header {STATUS}">
-        <h1>{EMOJI} {TITLE}</h1>
-    </div>
-    
-    <div class="content">
-        <div class="info-row">
-            <span class="label">Repository:</span>
-            <span class="value">{REPOSITORY}</span>
-        </div>
-        <div class="info-row">
-            <span class="label">Branch:</span>
-            <span class="value">{BRANCH}</span>
-        </div>
-        <div class="info-row">
-            <span class="label">Workflow:</span>
-            <span class="value">{WORKFLOW}</span>
-        </div>
-        <div class="info-row">
-            <span class="label">Job:</span>
-            <span class="value">{JOB}</span>
-        </div>
-        <div class="info-row">
-            <span class="label">Commit:</span>
-            <span class="value"><span class="code">{COMMIT}</span></span>
-        </div>
-        <div class="info-row">
-            <span class="label">Author:</span>
-            <span class="value">{AUTHOR}</span>
-        </div>
+  <div class="wrapper">
+
+    <div class="header">
+      <div class="header-top">
+        <span class="repo-label">{REPOSITORY}</span>
+        <span class="status-pill">{STATUS_TEXT}</span>
+      </div>
+      <div class="version-hero">{VERSION}</div>
+      <p class="release-by">released by <strong>{AUTHOR}</strong></p>
     </div>
 
-    <a href="{RUN_URL}" class="button">View Workflow Run</a>
-    
-    <p style="color: #666; font-size: 12px; margin-top: 30px;">
-        This is an automated notification from GitHub Actions.
-    </p>
+    <div class="body-section">
+      <div class="notes-card">
+        <div class="notes-label">Release Notes</div>
+        <div class="notes-content">{MESSAGE}</div>
+      </div>
+      <div class="cta-wrap">
+        <a href="{RELEASE_URL}" class="btn">View Release on GitHub &rarr;</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      Sent automatically by GitHub Actions &nbsp;&middot;&nbsp;
+      <a href="https://github.com/{REPOSITORY}/releases">All releases</a>
+    </div>
+
+  </div>
 </body>
 </html>

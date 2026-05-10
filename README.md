@@ -1,72 +1,233 @@
-# Multi-Channel Notification Action
+# Multi Release Notify
 
-A GitHub Action to send notifications to Slack, Telegram, and Email using [Apprise](https://github.com/caronc/apprise). This action provides beautiful default templates and supports custom templating.
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Multi--Release%20Notify-blue?logo=github)](https://github.com/marketplace/actions/multi-release-notify)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Send release and CI/CD notifications to **Slack, Telegram, Email, Bark, Ntfy, DingTalk**,
+or any of the [100+ channels Apprise supports](https://github.com/caronc/apprise/wiki) —
+with format-optimized built-in templates and zero manual configuration.
+
+---
 
 ## Features
 
-- **Multi-channel support**: Send to Slack, Telegram, Email, or all of them simultaneously.
-- **Dynamic Formatting**: Automatically formats the message with emojis and colors based on workflow status (Success 🟢, Failure 🔴, Cancelled ⚪️, etc.).
-- **Custom Templates**: Override default templates with your own custom templates for each channel.
-- **Easy Configuration**: Pass a single Apprise URL for each service to keep configuration minimal.
+- **Release-aware** — first-class support for `release: [published]` events; auto-generates
+  titles like `owner/repo updated to v1.2.0`
+- **Automatic format injection** — HTML for Email & Telegram, Markdown for Ntfy / Slack /
+  DingTalk, plain text for Bark; set per-channel automatically, no configuration needed
+- **URL decoration** — injects `icon`, `group`, `tags`, `avatar_url`, and `from` into
+  Apprise URLs per scheme, only when not already set
+- **Generic fallback** — pass any Apprise URL via `urls` to reach services not listed above
+  (Discord, Pushover, Gotify, Matrix, and more)
+- **Custom templates** — override any built-in template with your own file in your repo
+- **Failsafe title** — auto-generates `repo updated to v1.2.0` or `repo updated to v1.2.0 — failed`
 
-## Usage
+---
 
-You can use this action in your workflows by adding it as a step.
+## Quick Start
+
+### Release notification
 
 ```yaml
-name: CI/CD Pipeline
-on: [push]
+name: Release Notification
+on:
+  release:
+    types: [published]
 
 jobs:
-  build:
+  notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Your Build Step
-        run: echo "Building..."
-
-      - name: Notify on Completion
-        uses: HasanHajHasan/multi-channel-notification@v1
-        if: always()
+      - uses: actions/checkout@v4
+      - uses: sinspired/multi-release-notify@v1
         with:
-          status: ${{ job.status }}
-          channels: 'slack,telegram'
-          slack_url: ${{ secrets.SLACK_APPRISE_URL }}
-          telegram_url: ${{ secrets.TELEGRAM_APPRISE_URL }}
+          version:       ${{ github.event.release.tag_name }}
+          release_url:   ${{ github.event.release.html_url }}
+          release_notes: ${{ github.event.release.body }}
+          author:        ${{ github.event.release.author.login }}
+          channels:      email,telegram,bark
+          email_url:     ${{ secrets.EMAIL_APPRISE_URL }}
+          telegram_url:  ${{ secrets.TELEGRAM_APPRISE_URL }}
+          bark_url:      ${{ secrets.BARK_APPRISE_URL }}
 ```
+
+### Local self-test workflow
+
+Use the built-in local test workflow to validate the action without requiring external notification secrets.
+
+```yaml
+name: Action self-test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run local action with ntfy test topic
+        uses: ./
+        with:
+          version:       v0.0.1
+          release_url:   https://github.com/example/example/releases/tag/v0.0.1
+          release_notes: |
+            Local test run for action validation.
+          author:        github-actions
+          urls:          ntfy://github-multi-release-notify-test
+```
+
+### CI/CD status notification
+
+```yaml
+- uses: sinspired/multi-release-notify@v1
+  if: always()
+  with:
+    status:      ${{ job.status }}
+    channels:    slack
+    slack_url:   ${{ secrets.SLACK_APPRISE_URL }}
+```
+
+### Any Apprise-supported channel (generic fallback)
+
+```yaml
+- uses: sinspired/multi-release-notify@v1
+  with:
+    version:     ${{ github.event.release.tag_name }}
+    release_url: ${{ github.event.release.html_url }}
+    urls: |
+      discord://webhook_id/webhook_token
+      gotify://hostname/token
+      pushover://user_key/app_token
+```
+
+---
 
 ## Inputs
 
-| Input               | Description                                                                 | Required | Default            |
-|---------------------|-----------------------------------------------------------------------------|----------|--------------------|
-| `status`            | Job status (`success`, `failure`, `cancelled`, or custom)                   | No       | `failure`          |
-| `job_name`          | Name of the job that triggered notification                                 | No       | `${{ github.job }}`|
-| `channels`          | Comma-separated list of channels (e.g., `slack,telegram,email`)             | No       | `slack`            |
-| `title`             | Custom notification title (overrides default)                               | No       |                    |
-| `message`           | Custom message body (overrides default)                                     | No       |                    |
-| `slack_template`    | Path to custom Slack template (relative to repo root)                       | No       |                    |
-| `telegram_template` | Path to custom Telegram template                                            | No       |                    |
-| `email_template`    | Path to custom email template                                               | No       |                    |
-| `slack_url`         | Slack apprise URL (e.g., `slack://botname@token1/token2/token3/#channel`)   | No       |                    |
-| `telegram_url`      | Telegram apprise URL (e.g., `tgram://bottoken/chatid`)                      | No       |                    |
-| `email_url`         | Email apprise URL (e.g., `mailto://user:pass@domain.com`)                   | No       |                    |
+### Core
 
-## Creating Custom Templates
+| Input | Description | Default |
+|-------|-------------|---------|
+| `status` | `success`, `failure`, `cancelled`, `released`, or any string | `released` |
+| `channels` | Comma-separated: `email`, `telegram`, `bark`, `ntfy`, `slack`, `dingtalk` | |
+| `urls` | Generic fallback: any Apprise URL(s), comma- or newline-separated | |
+| `title` | Custom title. Auto-generated from repo + version if omitted. | |
+| `message` | Custom body. Uses `release_notes` if omitted. | |
+| `icon_url` | Icon URL injected into Bark, Ntfy, and Discord URLs | GitHub logo |
 
-If you wish to use fully custom templates, you can provide `slack_template`, `telegram_template`, or `email_template`. Your template files can use the following variables which will be dynamically replaced:
-- `{EMOJI}`
-- `{STATUS}`
-- `{TITLE}`
-- `{MESSAGE}`
-- `{REPOSITORY}`
-- `{BRANCH}`
-- `{WORKFLOW}`
-- `{JOB}`
-- `{COMMIT}`
-- `{AUTHOR}`
-- `{RUN_URL}`
+### Release metadata
+
+| Input | Description |
+|-------|-------------|
+| `version` | Tag name, e.g. `v1.2.0` |
+| `release_url` | URL to the GitHub Release page |
+| `release_notes` | Release body / changelog |
+| `author` | Publisher username (defaults to `github.actor`) |
+
+### Channel URLs
+
+| Input | Apprise URL format |
+|-------|-------------------|
+| `email_url` | `mailtos://user:pass@smtp.example.com?to=dest@example.com` |
+| `telegram_url` | `tgram://bottoken/chatid` |
+| `bark_url` | `bark://device_key@api.day.app` |
+| `ntfy_url` | `ntfy://topic` or `ntfys://user:pass@host/topic` |
+| `slack_url` | `slack://xoxb-token/#channel` |
+| `dingtalk_url` | `dingtalk://access_token` |
+
+### Custom template paths
+
+Paths are relative to your repository root. When omitted, the built-in template is used.
+
+| Input | Format |
+|-------|--------|
+| `email_template` | HTML |
+| `telegram_template` | Telegram HTML subset |
+| `bark_template` | Plain text |
+| `ntfy_template` | Markdown |
+| `slack_template` | Markdown |
+| `dingtalk_template` | Markdown |
+
+---
+
+## Channel format reference
+
+| Channel | Format sent | Rendered by |
+|---------|-------------|-------------|
+| Email | Full HTML + CSS | Email client |
+| Telegram | HTML subset (`<b>` `<code>` `<pre>` `<a>`) | Telegram client |
+| Slack | Markdown → mrkdwn (auto-converted) | Slack client |
+| Ntfy | Markdown | ntfy client |
+| DingTalk | Markdown | DingTalk client |
+| Bark | Plain text | iOS Notification Center |
+| Generic `urls` | Plain text | Service-dependent |
+
+---
+
+## Template variables
+
+| Variable | Description |
+|----------|-------------|
+| `{TITLE}` | Auto-generated or custom title |
+| `{MESSAGE}` | Body / release notes |
+| `{STATUS}` | Lowercase status: `released`, `failure`, etc. |
+| `{STATUS_TEXT}` | Display label: `Released`, `Failed`, etc. |
+| `{REPOSITORY}` | `owner/repo` |
+| `{AUTHOR}` | Publisher username |
+| `{VERSION}` | Release tag, e.g. `v1.2.0` |
+| `{RELEASE_URL}` | GitHub Release page URL |
+| `{RELEASE_NOTES}` | Raw release body text |
+
+---
+
+## Custom template example
+
+Create `.github/templates/telegram.html` in **your** repo:
+
+```html
+<b>{TITLE}</b>
+
+<code>{VERSION}</code>  ·  {REPOSITORY}
+by {AUTHOR}
+
+<b>Release Notes</b>
+<pre>{MESSAGE}</pre>
+
+<a href="{RELEASE_URL}">View on GitHub →</a>
+```
+
+Then pass the path:
+
+```yaml
+- uses: sinspired/multi-release-notify@v1
+  with:
+    telegram_url:      ${{ secrets.TELEGRAM_APPRISE_URL }}
+    telegram_template: .github/templates/telegram.html
+    version:           ${{ github.event.release.tag_name }}
+    release_url:       ${{ github.event.release.html_url }}
+```
+
+---
+
+## Setting up secrets
+
+Go to **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | Example value |
+|--------|---------------|
+| `EMAIL_APPRISE_URL` | `mailtos://user:pass@smtp.gmail.com?to=you@example.com` |
+| `TELEGRAM_APPRISE_URL` | `tgram://bot_token/chat_id` |
+| `BARK_APPRISE_URL` | `bark://api.day.app/device_token` |
+| `NTFY_APPRISE_URL` | `ntfy://your-topic` |
+| `SLACK_APPRISE_URL` | `slack://xoxb-token/#general` |
+| `DINGTALK_APPRISE_URL` | `dingtalk://your_access_token` |
+
+Full URL reference: [Apprise Wiki](https://github.com/caronc/apprise/wiki)
+
+---
 
 ## License
-MIT License
+
+MIT License — see [LICENSE](LICENSE) for details.

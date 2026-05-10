@@ -1,0 +1,27 @@
+# .github/workflows/release-notify.yml
+name: Release Notification
+
+# ─── 触发条件：发布 Release 或手动触发 ─────────────────────────
+on:
+    release:
+        types: [published]
+    workflow_dispatch: {}
+
+jobs:
+    notify:
+        name: Send Release Notifications
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+            - name: Send release notification
+              uses: ./
+              with:
+                  version: ${{ github.event.release.tag_name }}
+                  release_url: ${{ github.event.release.html_url }}
+                  release_notes: ${{ github.event.release.body }}
+                  author: ${{ github.event.release.author.login }}
+                  channels: email,telegram,,ntfy,slack
+                  email_url: ${{ secrets.EMAIL_APPRISE_URL }}
+                  telegram_url: ${{ secrets.TELEGRAM_APPRISE_URL }}
+                  slack_url: ${{ secrets.SLACK_APPRISE_URL }}
+                  ntfy_url: ${{ secrets.NTFY_APPRISE_URL }}
