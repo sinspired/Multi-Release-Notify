@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir apprise
+RUN pip install --no-cache-dir apprise markdown
 
 COPY entrypoint.sh /entrypoint.sh
 COPY templates /templates

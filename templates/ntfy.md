@@ -1,10 +1,4 @@
-# {VERSION}
-
-**{REPOSITORY}** · by {AUTHOR}
-
----
-
-### Release Notes
+# Release Notes
 
 {MESSAGE}
 

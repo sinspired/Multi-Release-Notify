@@ -1,8 +1,5 @@
 **{TITLE}**
 
-{VERSION} · {REPOSITORY}
-by {AUTHOR}
-
 **Release Notes**
 
 {MESSAGE}

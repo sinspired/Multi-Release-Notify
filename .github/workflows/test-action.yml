@@ -26,12 +26,4 @@ jobs:
                       - Fixed invalid `stdout://` test URL
                       - Corrected Apprise CLI notification option handling
                   author: ${{ github.actor }}
-                #   urls: ntfy://github-multi-release-notify-test
-
-
-                  channels: email,telegram,ntfy,slack
-                  email_url: ${{ secrets.EMAIL_APPRISE_URL }}
-                  telegram_url: ${{ secrets.TELEGRAM_APPRISE_URL }}
-                  slack_url: ${{ secrets.SLACK_APPRISE_URL }}
-                  ntfy_url: ${{ secrets.NTFY_APPRISE_URL }}
-
+                  urls: ntfy://github-multi-release-notify-test

@@ -92,6 +92,7 @@ decorate_url() {
 # multi-line values, slashes, and special characters that break sed.
 render_template() {
   local tpl_file="$1"
+  local fmt="$2"
   TITLE="$TITLE"           \
   MESSAGE="$MESSAGE"       \
   STATUS="${STATUS,,}"     \
@@ -101,11 +102,33 @@ render_template() {
   VERSION="$VERSION"       \
   RELEASE_URL="$RELEASE_URL" \
   RELEASE_NOTES="$RELEASE_NOTES" \
-  python3 - "$tpl_file" <<'PYEOF'
-import sys, os
+  python3 - "$tpl_file" "$fmt" <<'PYEOF'
+import sys, os, re
+
+def is_markdown(text):
+    # Simple heuristic to detect markdown
+    return bool(re.search(r'(\*\*.*?\*\*|__.*?__|#+\s|-\s|\*\s|`.*?`|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))', text))
+
+def markdown_to_html(text):
+    try:
+        import markdown
+        return markdown.markdown(text, extensions=['extra', 'codehilite'])
+    except ImportError:
+        # Fallback: basic conversion
+        text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)  # bold
+        text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)      # italic
+        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text) # inline code
+        text = re.sub(r'```([^`]+)```', r'<pre>\1</pre>', text, flags=re.DOTALL)  # code block
+        text = re.sub(r'^\s*-\s+(.*)$', r'<li>\1</li>', text, flags=re.MULTILINE)  # list items
+        text = re.sub(r'(?m)^(\d+)\.\s+(.*)$', r'<li>\1. \2</li>', text)  # numbered list
+        text = re.sub(r'\n\n', r'</p><p>', text)  # paragraphs
+        text = f'<p>{text}</p>'
+        return text
 
 with open(sys.argv[1], 'r') as f:
     content = f.read()
+
+fmt = sys.argv[2] if len(sys.argv) > 2 else 'text'
 
 for placeholder, env_key in {
     '{TITLE}':         'TITLE',
@@ -118,7 +141,10 @@ for placeholder, env_key in {
     '{RELEASE_URL}':   'RELEASE_URL',
     '{RELEASE_NOTES}': 'RELEASE_NOTES',
 }.items():
-    content = content.replace(placeholder, os.environ.get(env_key, ''))
+    value = os.environ.get(env_key, '')
+    if placeholder == '{MESSAGE}' and fmt == 'html' and is_markdown(value):
+        value = markdown_to_html(value)
+    content = content.replace(placeholder, value)
 
 print(content, end='')
 PYEOF
@@ -150,7 +176,7 @@ send_channel() {
   fi
 
   local body
-  body=$(render_template "$tpl_file")
+  body=$(render_template "$tpl_file" "$fmt")
 
   local url
   url=$(decorate_url "$raw_url" "$ICON_URL")
@@ -235,6 +261,34 @@ ${RELEASE_URL}"
         fmt="text"
         ;;
     esac
+
+    # Convert message to appropriate format if needed
+    formatted_message="$MESSAGE"
+    if [[ "$fmt" == "html" ]]; then
+        # Check if message contains markdown
+        if echo "$MESSAGE" | python3 -c 'import re, sys; print("1" if re.search(r"(\*\*.*?\*\*|__.*?__|#+\s|-\s|\*\s|\`.*?\`|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))", sys.stdin.read()) else "0")' | grep -q '1'; then
+            formatted_message=$(echo "$MESSAGE" | python3 -c '
+import re, sys
+text = sys.stdin.read()
+try:
+    import markdown
+    print(markdown.markdown(text, extensions=["extra", "codehilite"]), end="")
+except ImportError:
+    text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"\*(.*?)\*", r"<i>\1</i>", text)
+    text = re.sub(r"\`(.*?)\`", r"<code>\1</code>", text)
+    text = re.sub(r"```([^`]+)```", r"<pre>\1</pre>", text, flags=re.DOTALL)
+    text = re.sub(r"^\s*-\s+(.*)$", r"<li>\1</li>", text, flags=re.MULTILINE)
+    text = re.sub(r"(?m)^(\d+)\.\s+(.*)$", r"<li>\1. \2</li>", text)
+    text = re.sub(r"\n\n", r"</p><p>", text)
+    print(f"<p>{text}</p>", end="")
+')
+        fi
+    fi
+
+    generic_body="${formatted_message}
+
+${RELEASE_URL}"
 
     echo "📤 [generic:${local_scheme}] Sending..."
     if apprise \
