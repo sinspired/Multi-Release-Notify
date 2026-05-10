@@ -1,4 +1,7 @@
-{SUMMARY_SECTION}# Release Notes
+
+{SUMMARY_SECTION}
+
+# Release Notes
 
 {MESSAGE}
 
