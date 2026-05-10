@@ -210,9 +210,7 @@ fi
 if [[ -n "${URLS_INPUT}" ]]; then
   echo "─── Generic URLs ────────────────────────────────────────────────"
 
-  generic_body="${TITLE}
-
-Repository : ${REPOSITORY}
+  generic_body="Repository : ${REPOSITORY}
 Version    : ${VERSION}
 Author     : ${AUTHOR}
 
