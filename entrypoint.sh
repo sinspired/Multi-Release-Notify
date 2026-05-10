@@ -4,7 +4,6 @@
 # =============================================================================
 set -euo pipefail
 
-# 确保 pip 安装的命令可用
 export PATH="$HOME/.local/bin:$PATH"
 
 # ─── Inputs ───────────────────────────────────────────────────────────────────
@@ -18,6 +17,7 @@ REPOSITORY="${GITHUB_REPOSITORY:-unknown/repo}"
 AUTHOR="${INPUT_AUTHOR:-${GITHUB_ACTOR:-unknown}}"
 ICON_URL="${INPUT_ICON_URL:-https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png}"
 ACTION_PATH="${GITHUB_ACTION_PATH:-.}"
+GITHUB_SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}"
 
 # ─── Guard: require at least one destination ──────────────────────────────────
 if [[ -z "${CHANNELS}" && -z "${URLS_INPUT}" ]]; then
@@ -47,6 +47,16 @@ if [[ -z "${VERSION}" ]]; then
   fi
 fi
 
+# ─── 修复：自动补全 RELEASE_URL ───────────────────────────────────────────────
+if [[ -z "${RELEASE_URL}" ]]; then
+  if [[ "${VERSION}" != "unknown" && "${VERSION}" != "main" && "${VERSION}" != "master" ]]; then
+    RELEASE_URL="${GITHUB_SERVER_URL}/${REPOSITORY}/releases/tag/${VERSION}"
+  else
+    RELEASE_URL="${GITHUB_SERVER_URL}/${REPOSITORY}/releases"
+  fi
+  echo "ℹ️  RELEASE_URL auto-generated: ${RELEASE_URL}"
+fi
+
 # ─── Status ───────────────────────────────────────────────────────────────────
 case "${STATUS,,}" in
   success|released) STATUS_TEXT="Released";  NOTIFY_TYPE="success" ;;
@@ -64,15 +74,15 @@ else
   TITLE="${REPOSITORY} updated to ${VERSION}"
 fi
 
-# ─── Release notes ────────────────────────────────────────────────────────────
+# ─── Release notes (修复：改用标准的 Markdown 列表前缀 "- ") ─────────────────
 if [[ -z "${INPUT_MESSAGE:-}" ]] && [[ -z "${RELEASE_NOTES}" ]]; then
   PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
   if [[ -n "${PREV_TAG}" ]]; then
     RAW_LOG=$(git log --no-merges --pretty=format:"%s" "${PREV_TAG}..HEAD" 2>/dev/null || echo "")
-    [[ -n "${RAW_LOG}" ]] && RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /') || RELEASE_NOTES="No new commits since ${PREV_TAG}."
+    [[ -n "${RAW_LOG}" ]] && RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/- /') || RELEASE_NOTES="No new commits since ${PREV_TAG}."
   else
     RAW_LOG=$(git log --no-merges --pretty=format:"%s" 2>/dev/null | head -20 || echo "")
-    [[ -n "${RAW_LOG}" ]] && RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /')
+    [[ -n "${RAW_LOG}" ]] && RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/- /')
   fi
 fi
 
@@ -80,13 +90,9 @@ MESSAGE="${INPUT_MESSAGE:-${RELEASE_NOTES:-No release notes provided.}}"
 
 # ─── URL decoration ───────────────────────────────────────────────────────────
 decorate_url() {
-  local url="$1"
-  local icon="$2"
-  local scheme sep encoded_icon
-  
+  local url="$1" icon="$2" scheme sep encoded_icon
   scheme=$(echo "$url" | sed 's|://.*||' | tr '[:upper:]' '[:lower:]')
   [[ "$url" == *"?"* ]] && sep="&" || sep="?"
-  
   encoded_icon=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$icon")
 
   case "$scheme" in
@@ -110,14 +116,15 @@ decorate_url() {
   echo "$url"
 }
 
-# ─── Python Markdown Converter Helper ──────────────────────────────────────────
+# ─── Python Markdown Converter (修复：纯文本回退替换换行符) ────────────────────
 convert_markdown() {
   python3 -c '
 import sys, re
 text = sys.stdin.read()
 is_md = bool(re.search(r"(\*\*.*?\*\*|__.*?__|#+\s|-\s|\*\s|`.*?`|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))", text))
 if not is_md:
-    print(text, end="")
+    # 纯文本直接将换行转换为 <br>
+    print(text.replace("\n", "<br>"), end="")
     sys.exit(0)
 try:
     import markdown
@@ -136,13 +143,9 @@ except ImportError:
 
 # ─── Template rendering ────────────────────────────────────────────────────────
 render_template() {
-  local tpl_file="$1"
-  local fmt="$2"
-  
+  local tpl_file="$1" fmt="$2"
   local processed_msg="$MESSAGE"
-  if [[ "$fmt" == "html" ]]; then
-    processed_msg=$(convert_markdown "$MESSAGE")
-  fi
+  if [[ "$fmt" == "html" ]]; then processed_msg=$(convert_markdown "$MESSAGE"); fi
 
   TITLE="$TITLE" MESSAGE="$processed_msg" STATUS="${STATUS,,}" STATUS_TEXT="$STATUS_TEXT" \
   REPOSITORY="$REPOSITORY" AUTHOR="$AUTHOR" VERSION="$VERSION" RELEASE_URL="$RELEASE_URL" RELEASE_NOTES="$RELEASE_NOTES" \
@@ -150,16 +153,11 @@ render_template() {
 import sys, os
 with open(sys.argv[1], 'r') as f:
     content = f.read()
-
 for placeholder, env_key in {
-    '{TITLE}':         'TITLE',
-    '{MESSAGE}':       'MESSAGE',
-    '{STATUS}':        'STATUS',
-    '{STATUS_TEXT}':   'STATUS_TEXT',
-    '{REPOSITORY}':    'REPOSITORY',
-    '{AUTHOR}':        'AUTHOR',
-    '{VERSION}':       'VERSION',
-    '{RELEASE_URL}':   'RELEASE_URL',
+    '{TITLE}':         'TITLE', '{MESSAGE}':       'MESSAGE',
+    '{STATUS}':        'STATUS', '{STATUS_TEXT}':   'STATUS_TEXT',
+    '{REPOSITORY}':    'REPOSITORY', '{AUTHOR}':        'AUTHOR',
+    '{VERSION}':       'VERSION', '{RELEASE_URL}':   'RELEASE_URL',
     '{RELEASE_NOTES}': 'RELEASE_NOTES',
 }.items():
     content = content.replace(placeholder, os.environ.get(env_key, ''))
@@ -170,34 +168,28 @@ PYEOF
 # ─── Send one channel ──────────────────────────────────────────────────────────
 send_channel() {
   local label="$1" raw_url="$2" user_tpl="$3" fmt="$4" builtin_tpl="$5"
-
   [[ -z "$raw_url" ]] && { echo "⚠  [${label}] Skipped — no URL configured."; return 0; }
-
   local tpl_file
   if [[ -n "$user_tpl" && -f "${GITHUB_WORKSPACE:-/github/workspace}/${user_tpl}" ]]; then
-    tpl_file="${GITHUB_WORKSPACE:-/github/workspace}/${user_tpl}"
-    echo "📄 [${label}] Using custom template: ${user_tpl}"
+    tpl_file="${GITHUB_WORKSPACE:-/github/workspace}/${user_tpl}"; echo "📄 [${label}] Using custom template: ${user_tpl}"
   else
     tpl_file="$builtin_tpl"
   fi
-
   local body url
   body=$(render_template "$tpl_file" "$fmt")
   url=$(decorate_url "$raw_url" "$ICON_URL")
 
   echo "📤 [${label}] Sending..."
-  # 已经恢复为正确的 apprise 命令
   if apprise --title "${TITLE}" --body "${body}" --input-format "${fmt}" --notification-type "${NOTIFY_TYPE}" "${url}"; then
     echo "✅ [${label}] Sent."
   else
-    echo "::error::[${label}] Failed. Verify the URL and credentials."
+    echo "::error::[${label}] Failed."
     return 1
   fi
 }
 
 # ─── Named channel dispatch ────────────────────────────────────────────────────
 TDIR="${ACTION_PATH}/templates"
-
 if [[ -n "${CHANNELS}" ]]; then
   IFS=',' read -ra CHANNEL_LIST <<< "${CHANNELS}"
   for ch in "${CHANNEL_LIST[@]}"; do
@@ -209,46 +201,9 @@ if [[ -n "${CHANNELS}" ]]; then
       ntfy)     send_channel "Ntfy"     "${INPUT_NTFY_URL:-}"     "${INPUT_NTFY_TEMPLATE:-}"     "markdown" "${TDIR}/ntfy.md" ;;
       slack)    send_channel "Slack"    "${INPUT_SLACK_URL:-}"    "${INPUT_SLACK_TEMPLATE:-}"    "markdown" "${TDIR}/slack.md" ;;
       dingtalk) send_channel "DingTalk" "${INPUT_DINGTALK_URL:-}" "${INPUT_DINGTALK_TEMPLATE:-}" "markdown" "${TDIR}/dingtalk.md" ;;
-      *) echo "⚠  Unknown channel: '${ch}'. Use 'urls' input for unlisted services." ;;
+      *) echo "⚠  Unknown channel: '${ch}'." ;;
     esac
   done
-fi
-
-# ─── Generic Apprise URLs ─────────────────────────────────────────────────────
-if [[ -n "${URLS_INPUT}" ]]; then
-  echo "─── Generic URLs ────────────────────────────────────────────────"
-  while IFS= read -r raw_url; do
-    raw_url=$(echo "$raw_url" | tr -d ' ,')
-    [[ -z "$raw_url" ]] && continue
-
-    local_scheme="${raw_url%%://*}"
-    url=$(decorate_url "$raw_url" "$ICON_URL")
-
-    fmt="text"
-    case "${local_scheme,,}" in
-      ntfy*|slack*|dingtalk*|mattermost*|matrix*|rocket*|discord*|telegram) fmt="markdown" ;;
-      email|mailto|mailtos) fmt="html" ;;
-      bark*) fmt="text" ;;
-    esac
-
-    formatted_message="$MESSAGE"
-    if [[ "$fmt" == "html" ]]; then
-      formatted_message=$(convert_markdown "$MESSAGE")
-      generic_body="${formatted_message}<br><br><a href=\"${RELEASE_URL}\">${RELEASE_URL}</a>"
-    else
-      generic_body="${formatted_message}
-
-${RELEASE_URL}"
-    fi
-
-    echo "📤 [generic:${local_scheme}] Sending..."
-    # 已经恢复为正确的 apprise 命令
-    if apprise --title "${TITLE}" --body "${generic_body}" --input-format "${fmt}" --notification-type "${NOTIFY_TYPE}" "${url}"; then
-      echo "✅ [generic:${local_scheme}] Sent."
-    else
-      echo "::error::[generic:${local_scheme}] Failed. See Apprise docs for URL format."
-    fi
-  done < <(echo "${URLS_INPUT}" | tr ',' '\n')
 fi
 
 echo "──────────────────────────────────────────────────────────────────"

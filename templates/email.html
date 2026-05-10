@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,13 +7,10 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             background: #0d1117;
             font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
         }
@@ -35,23 +31,25 @@
             overflow: hidden;
         }
 
-        /* Decorative accent bar */
         .header::before {
-            content: '';
-            display: block;
+            content: ''; display: block;
             height: 3px;
             background: linear-gradient(90deg, #2ea043 0%, #56d364 50%, #2ea04300 100%);
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            position: absolute; top: 0; left: 0; right: 0;
         }
 
-        /* Top row: status badge only */
         .header-top {
             display: flex;
-            justify-content: flex-end;
-            margin-bottom: 20px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .repo-name {
+            font-size: 14px;
+            color: #8b949e;
+            font-weight: 500;
+            letter-spacing: 0.01em;
         }
 
         .status-badge {
@@ -60,63 +58,40 @@
             border: 1px solid #2ea043;
             padding: 3px 10px;
             border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 11px; font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.08em;
         }
 
-        /* Repo row: full width, own line — no SVG (poor email client support) */
-        .repo-row {
-            margin-bottom: 18px;
-            line-height: 1;
-        }
-
-        .repo-icon-text {
-            display: inline;
-            font-size: 13px;
-            color: #484f58;
-            margin-right: 6px;
-            font-style: normal;
-        }
-
-        .repo-name {
-            display: inline;
-            font-size: 13px;
-            color: #8b949e;
-            font-weight: 500;
-            letter-spacing: 0.01em;
-            word-break: break-all;
-        }
-
-        /* Version + author */
+        /* Version Info Layout */
         .version-block {
-            padding-bottom: 32px;
+            padding-bottom: 28px;
         }
 
         .version-number {
-            font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
-            font-size: 52px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 46px;
             font-weight: 800;
             color: #f0f6fc;
-            letter-spacing: -2px;
-            line-height: 1;
-            margin-bottom: 10px;
-            word-break: break-all;
+            letter-spacing: -1.5px;
+            line-height: 1.1;
+            margin: 0 0 8px 0;
         }
 
         .released-by {
-            font-size: 13px;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
             color: #8b949e;
             margin: 0;
         }
 
-        .released-by strong {
+        .author-name {
             color: #e6edf3;
             font-weight: 600;
+            margin-right: 5px;
         }
 
-        /* Separator wave / fade — must carry left & right borders to bridge the gap */
         .header-fade {
             height: 32px;
             background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
@@ -127,182 +102,111 @@
         /* ── Body ── */
         .body-section {
             background: #0d1117;
-            border: 1px solid #30363d;
-            border-top: none;
+            border: 1px solid #30363d; border-top: none;
             padding: 0 36px 32px;
         }
 
-        /* Divider between header-fade and cards */
         .divider {
-            border: none;
-            border-top: 1px solid #21262d;
+            border: none; border-top: 1px solid #21262d;
             margin: 0 0 28px;
         }
 
-        /* Release notes card */
         .notes-card {
             background: #161b22;
             border: 1px solid #30363d;
             border-radius: 8px;
-            overflow: hidden;
             margin-bottom: 28px;
         }
 
         .notes-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            display: flex; align-items: center; gap: 8px;
             padding: 10px 16px;
             border-bottom: 1px solid #21262d;
             background: #1c2128;
+            border-radius: 8px 8px 0 0;
         }
 
         .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #2ea043;
+            width: 8px; height: 8px;
+            border-radius: 50%; background: #2ea043;
         }
 
         .notes-label {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.1em;
             color: #8b949e;
         }
 
+        /* Markdown Styles Inside Email */
         .notes-body {
-            padding: 18px 20px;
+            padding: 20px;
             font-size: 14px;
             color: #c9d1d9;
-            line-height: 1.8;
-            /* 移除 white-space: pre-wrap; 让 HTML 标签自己控制换行 */
+            line-height: 1.6;
+            word-wrap: break-word;
         }
 
-        /* 专门针对 Markdown 转出来的 HTML 标签增加暗色主题样式 */
-        .notes-body p {
-            margin: 0 0 14px 0;
-        }
-
-        .notes-body p:last-child {
-            margin-bottom: 0;
-        }
-
-        .notes-body ul,
-        .notes-body ol {
-            margin: 0 0 14px 0;
-            padding-left: 24px;
-        }
-
-        .notes-body li {
-            margin-bottom: 4px;
-        }
-
+        .notes-body p { margin: 0 0 16px 0; }
+        .notes-body p:last-child { margin-bottom: 0; }
+        .notes-body a { color: #58a6ff; text-decoration: none; }
+        .notes-body a:hover { text-decoration: underline; }
+        .notes-body ul, .notes-body ol { margin: 0 0 16px 0; padding-left: 20px; }
+        .notes-body li { margin-bottom: 6px; }
         .notes-body code {
-            font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
-            background: rgba(110, 118, 129, 0.4);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 13px;
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(110,118,129,0.4);
+            padding: 2px 6px; border-radius: 4px; font-size: 13px;
         }
-
         .notes-body pre {
-            background: #0d1117;
-            border: 1px solid #30363d;
-            padding: 12px;
-            border-radius: 6px;
-            overflow-x: auto;
-            margin: 14px 0;
+            background: #0d1117; border: 1px solid #30363d;
+            padding: 12px; border-radius: 6px;
+            overflow-x: auto; margin: 16px 0;
         }
-
-        .notes-body pre code {
-            background: transparent;
-            padding: 0;
-        }
+        .notes-body pre code { background: transparent; padding: 0; }
 
         /* CTA */
-        .cta-wrap {
-            text-align: center;
-            padding-top: 4px;
-        }
+        .cta-wrap { text-align: center; }
 
         .btn {
             display: inline-block;
-            background: #238636;
-            color: #ffffff !important;
+            background: #238636; color: #ffffff !important;
             text-decoration: none;
-            padding: 13px 30px;
-            border-radius: 7px;
-            font-weight: 600;
-            font-size: 14px;
-            letter-spacing: 0.01em;
+            padding: 12px 28px; border-radius: 6px;
+            font-weight: 600; font-size: 14px;
             border: 1px solid #2ea043;
             transition: background 0.15s;
-        }
-
-        .btn:hover {
-            background: #2ea043;
-        }
-
-        .btn-arrow {
-            margin-left: 6px;
-            opacity: 0.75;
         }
 
         /* ── Footer ── */
         .footer {
             background: #0d1117;
-            border: 1px solid #30363d;
-            border-top: none;
+            border: 1px solid #30363d; border-top: none;
             border-radius: 0 0 12px 12px;
-            padding: 16px 36px 20px;
-            text-align: center;
-            color: #484f58;
-            font-size: 12px;
+            padding: 16px 36px 24px;
+            text-align: center; color: #484f58; font-size: 12px;
         }
 
-        .footer a {
-            color: #58a6ff;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-
-        .footer-sep {
-            margin: 0 8px;
-            opacity: 0.4;
-        }
+        .footer a { color: #58a6ff; text-decoration: none; }
     </style>
 </head>
-
 <body>
     <div class="shell">
-
-        <!-- Header -->
         <div class="header">
-            <!-- Row 1: status badge -->
             <div class="header-top">
+                <span class="repo-name">◈ {REPOSITORY}</span>
                 <span class="status-badge">{STATUS_TEXT}</span>
             </div>
 
-            <!-- Row 2: repository (own line, no SVG for email client compat) -->
-            <div class="repo-row">
-                <span class="repo-icon-text">◈</span><span class="repo-name">{REPOSITORY}</span>
-            </div>
-
-            <!-- Row 3: version + author -->
             <div class="version-block">
-                <div class="version-number">{VERSION}</div>
-                <p class="released-by">released by <strong>{AUTHOR}</strong></p>
+                <h1 class="version-number">{VERSION}</h1>
+                <div class="released-by">
+                    <span class="author-name">{AUTHOR}</span> released this
+                </div>
             </div>
         </div>
 
         <div class="header-fade"></div>
 
-        <!-- Body -->
         <div class="body-section">
             <hr class="divider">
 
@@ -311,24 +215,22 @@
                     <div class="dot"></div>
                     <span class="notes-label">Release Notes</span>
                 </div>
-                <div class="notes-body">{MESSAGE}</div>
+                <div class="notes-body">
+                    <!-- Markdown or Text injected here -->
+                    {MESSAGE}
+                </div>
             </div>
 
             <div class="cta-wrap">
-                <a href="{RELEASE_URL}" class="btn">
-                    View Release on GitHub <span class="btn-arrow">→</span>
-                </a>
+                <a href="{RELEASE_URL}" class="btn">View on GitHub →</a>
             </div>
         </div>
 
-        <!-- Footer -->
         <div class="footer">
-            Sent automatically by GitHub Actions
-            <span class="footer-sep">·</span>
+            Sent via Multi Release Notify
+            <span style="margin: 0 6px; opacity: 0.4;">·</span>
             <a href="https://github.com/{REPOSITORY}/releases">All releases</a>
         </div>
-
     </div>
 </body>
-
 </html>
