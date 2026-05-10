@@ -14,6 +14,14 @@ on:
                 description: "版本号（如 v1.2.0），留空则自动从 git tag 检测"
                 required: false
                 default: ""
+            channels:
+                description: "通知渠道（逗号分隔，如 email,telegram,slack）"
+                required: false
+                default: ""
+            urls:
+                description: "通用 Apprise URLs（换行或逗号分隔）"
+                required: false
+                default: ""
 
 jobs:
     notify:
@@ -35,7 +43,8 @@ jobs:
                   # release body 有内容则直接用；为空则脚本自动从 git log 生成
                   release_notes: ${{ github.event.release.body }}
                   author: ${{ github.event.release.author.login || github.actor }}
-                  channels: email,telegram,ntfy,slack
+                  channels: ${{ inputs.channels || 'email,telegram,ntfy,slack' }}
+                  urls: ${{ inputs.urls }}
                   email_url: ${{ secrets.EMAIL_APPRISE_URL }}
                   telegram_url: ${{ secrets.TELEGRAM_APPRISE_URL }}
                   slack_url: ${{ secrets.SLACK_APPRISE_URL }}
