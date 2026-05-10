@@ -8,7 +8,9 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap');
 
-        * { box-sizing: border-box; }
+        * {
+            box-sizing: border-box;
+        }
 
         body {
             margin: 0;
@@ -40,7 +42,9 @@
             height: 3px;
             background: linear-gradient(90deg, #2ea043 0%, #56d364 50%, #2ea04300 100%);
             position: absolute;
-            top: 0; left: 0; right: 0;
+            top: 0;
+            left: 0;
+            right: 0;
         }
 
         /* Top row: status badge only */
@@ -173,7 +177,48 @@
             font-size: 14px;
             color: #c9d1d9;
             line-height: 1.8;
-            white-space: pre-wrap;
+            /* 移除 white-space: pre-wrap; 让 HTML 标签自己控制换行 */
+        }
+
+        /* 专门针对 Markdown 转出来的 HTML 标签增加暗色主题样式 */
+        .notes-body p {
+            margin: 0 0 14px 0;
+        }
+
+        .notes-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        .notes-body ul,
+        .notes-body ol {
+            margin: 0 0 14px 0;
+            padding-left: 24px;
+        }
+
+        .notes-body li {
+            margin-bottom: 4px;
+        }
+
+        .notes-body code {
+            font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+            background: rgba(110, 118, 129, 0.4);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .notes-body pre {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 14px 0;
+        }
+
+        .notes-body pre code {
+            background: transparent;
+            padding: 0;
         }
 
         /* CTA */

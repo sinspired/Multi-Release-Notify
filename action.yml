@@ -6,7 +6,8 @@ runs:
   using: "composite"
   steps:
     - name: Install dependencies
-      run: pip install apprise markdown
+      # 使用 --break-system-packages 兼容 Ubuntu 24.04+ Runner 的 PEP 668 限制
+      run: python3 -m pip install --break-system-packages apprise markdown
       shell: bash
     - name: Run notification script
       run: bash ${{ github.action_path }}/entrypoint.sh
