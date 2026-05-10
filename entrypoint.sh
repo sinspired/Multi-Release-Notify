@@ -60,10 +60,10 @@ HEREDOC
 )
 
 # Telegram HTML：加粗摘要 + 空行分隔
-SUMMARY_SECTION_TG="<b>📋 ${SUMMARY}</b>"$'\n\n'
+SUMMARY_SECTION_TG="<b>${SUMMARY}</b>"$'\n\n'
 
 # Markdown（Ntfy / Slack / DingTalk）：加粗 + 分割线
-SUMMARY_SECTION_MD="**📋 ${SUMMARY}**"$'\n\n'"---"$'\n\n'
+SUMMARY_SECTION_MD="**${SUMMARY}**"$'\n\n'"---"$'\n\n'
 
 # 纯文本（Bark）：分隔线
 SUMMARY_SECTION_TEXT="${SUMMARY}"$'\n'"────────────"$'\n\n'
