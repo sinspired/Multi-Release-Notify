@@ -27,14 +27,14 @@ SUMMARY="${INPUT_SUMMARY:-}"
 
 # ─── Guard ────────────────────────────────────────────────────────────────────
 if [[ -z "${URLS_INPUT}" \
-   && -z "${INPUT_EMAIL_URL:-}" \
-   && -z "${INPUT_TELEGRAM_URL:-}" \
-   && -z "${INPUT_BARK_URL:-}" \
-   && -z "${INPUT_NTFY_URL:-}" \
-   && -z "${INPUT_SLACK_URL:-}" \
-   && -z "${INPUT_DINGTALK_URL:-}" ]]; then
-  echo "::error::No destination configured."
-  exit 1
+        && -z "${INPUT_EMAIL_URL:-}" \
+        && -z "${INPUT_TELEGRAM_URL:-}" \
+        && -z "${INPUT_BARK_URL:-}" \
+        && -z "${INPUT_NTFY_URL:-}" \
+        && -z "${INPUT_SLACK_URL:-}" \
+    && -z "${INPUT_DINGTALK_URL:-}" ]]; then
+    echo "::error::No destination configured."
+    exit 1
 fi
 
 # ─── Summary Section（按渠道格式预渲染，为空时各变量均为空字符串）────────────────
@@ -44,8 +44,8 @@ SUMMARY_SECTION_TG=""
 SUMMARY_SECTION_TEXT=""
 
 if [[ -n "${SUMMARY}" ]]; then
-
-  # Email HTML 格式：完整的 summary 卡片（复用 notes-card 样式，蓝色强调）
+    
+    # Email HTML 格式：完整的 summary 卡片（复用 notes-card 样式，蓝色强调）
   SUMMARY_SECTION_HTML=$(cat <<HEREDOC
 <div class="notes-card" style="margin-bottom:16px;">
   <div class="notes-header">
@@ -59,154 +59,154 @@ if [[ -n "${SUMMARY}" ]]; then
 HEREDOC
 )
 
-  # Telegram HTML：加粗摘要 + 空行分隔
-  SUMMARY_SECTION_TG="<b>📋 ${SUMMARY}</b>"$'\n\n'
+# Telegram HTML：加粗摘要 + 空行分隔
+SUMMARY_SECTION_TG="<b>📋 ${SUMMARY}</b>"$'\n\n'
 
-  # Markdown（Ntfy / Slack / DingTalk）：加粗 + 分割线
-  SUMMARY_SECTION_MD="**📋 ${SUMMARY}**"$'\n\n'"---"$'\n\n'
+# Markdown（Ntfy / Slack / DingTalk）：加粗 + 分割线
+SUMMARY_SECTION_MD="**📋 ${SUMMARY}**"$'\n\n'"---"$'\n\n'
 
-  # 纯文本（Bark）：分隔线
-  SUMMARY_SECTION_TEXT="${SUMMARY}"$'\n'"────────────"$'\n\n'
+# 纯文本（Bark）：分隔线
+SUMMARY_SECTION_TEXT="${SUMMARY}"$'\n'"────────────"$'\n\n'
 
 fi
 
 # ─── VERSION ──────────────────────────────────────────────────────────────────
 if [[ -z "${VERSION}" ]]; then
-  GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-  if [[ -n "${GIT_TAG}" ]]; then
+if [[ -n "${GIT_TAG}" ]]; then
     VERSION="${GIT_TAG}"
-  elif [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]]; then
+    elif [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]]; then
     VERSION="${GITHUB_REF#refs/tags/}"
-  elif [[ "${GITHUB_REF:-}" =~ ^refs/heads/ ]]; then
+    elif [[ "${GITHUB_REF:-}" =~ ^refs/heads/ ]]; then
     VERSION="${GITHUB_REF#refs/heads/}"
-  else
+else
     VERSION="${GITHUB_REF:-unknown}"
-  fi
+fi
 fi
 
 # ─── Release URL ──────────────────────────────────────────────────────────────
 if [[ -z "${RELEASE_URL}" ]]; then
-  if [[ "${VERSION}" != "unknown" \
-     && "${VERSION}" != "main" \
-     && "${VERSION}" != "master" ]]; then
+if [[ "${VERSION}" != "unknown" \
+        && "${VERSION}" != "main" \
+    && "${VERSION}" != "master" ]]; then
     RELEASE_URL="${GITHUB_SERVER_URL}/${REPOSITORY}/releases/tag/${VERSION}"
-  else
+else
     RELEASE_URL="${GITHUB_SERVER_URL}/${REPOSITORY}/releases"
-  fi
+fi
 fi
 
 # ─── Status ───────────────────────────────────────────────────────────────────
 case "${STATUS,,}" in
-  success|released)
+success|released)
     STATUS_TEXT="Released"
     NOTIFY_TYPE="success"
-    ;;
-  failure|failed)
+;;
+failure|failed)
     STATUS_TEXT="Failed"
     NOTIFY_TYPE="failure"
-    ;;
-  cancelled)
+;;
+cancelled)
     STATUS_TEXT="Cancelled"
     NOTIFY_TYPE="warning"
-    ;;
-  *)
+;;
+*)
     STATUS_TEXT="${STATUS}"
     NOTIFY_TYPE="info"
-    ;;
+;;
 esac
 
 # ─── Title ────────────────────────────────────────────────────────────────────
 if [[ -n "${INPUT_TITLE:-}" ]]; then
-  TITLE="${INPUT_TITLE}"
+TITLE="${INPUT_TITLE}"
 elif [[ "${NOTIFY_TYPE}" == "failure" ]]; then
-  TITLE="${REPOSITORY} updated to ${VERSION} — failed"
+TITLE="${REPOSITORY} updated to ${VERSION} — failed"
 else
-  TITLE="${REPOSITORY} updated to ${VERSION}"
+TITLE="${REPOSITORY} updated to ${VERSION}"
 fi
 
 # ─── Release notes ────────────────────────────────────────────────────────────
 if [[ -z "${INPUT_MESSAGE:-}" ]] && [[ -z "${RELEASE_NOTES}" ]]; then
-  PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
-  if [[ -n "${PREV_TAG}" ]]; then
+if [[ -n "${PREV_TAG}" ]]; then
     RAW_LOG=$(git log --no-merges --pretty=format:"%s" "${PREV_TAG}..HEAD" 2>/dev/null || echo "")
-
+    
     if [[ -n "${RAW_LOG}" ]]; then
-      RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/- /')
+        RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/- /')
     else
-      RELEASE_NOTES="No new commits since ${PREV_TAG}."
+        RELEASE_NOTES="No new commits since ${PREV_TAG}."
     fi
-  else
+else
     RAW_LOG=$(git log --no-merges --pretty=format:"%s" 2>/dev/null | head -20 || echo "")
-
+    
     if [[ -n "${RAW_LOG}" ]]; then
-      RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/- /')
+        RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/- /')
     fi
-  fi
+fi
 fi
 
 MESSAGE="${INPUT_MESSAGE:-${RELEASE_NOTES:-No release notes provided.}}"
 
 # ─── URL decoration ───────────────────────────────────────────────────────────
 decorate_url() {
-  local url="$1"
-  local icon="$2"
+local url="$1"
+local icon="$2"
 
-  local scheme
-  local sep
-  local encoded_icon
+local scheme
+local sep
+local encoded_icon
 
-  scheme=$(echo "$url" | sed 's|://.*||' | tr '[:upper:]' '[:lower:]')
+scheme=$(echo "$url" | sed 's|://.*||' | tr '[:upper:]' '[:lower:]')
 
-  if [[ "$url" == *"?"* ]]; then
+if [[ "$url" == *"?"* ]]; then
     sep="&"
-  else
+else
     sep="?"
-  fi
+fi
 
-  encoded_icon=$(python3 -c \
+encoded_icon=$(python3 -c \
     "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" \
-    "$icon")
+"$icon")
 
-  case "$scheme" in
+case "$scheme" in
     bark*)
-      [[ "$url" != *"icon="*  ]] && url="${url}${sep}icon=${encoded_icon}" && sep="&"
-      [[ "$url" != *"group="* ]] && url="${url}${sep}group=GitHub_Release"
-      ;;
-
+        [[ "$url" != *"icon="*  ]] && url="${url}${sep}icon=${encoded_icon}" && sep="&"
+        [[ "$url" != *"group="* ]] && url="${url}${sep}group=GitHub_Release"
+    ;;
+    
     ntfy*)
-      [[ "$url" != *"avatar_url="* ]] && url="${url}${sep}avatar_url=${encoded_icon}" && sep="&"
-
-      if [[ "$url" != *"tags="* ]]; then
-        url="${url}${sep}tags=GitHub_Release"
-        sep="&"
-      else
-        url=$(echo "$url" | sed 's/\(tags=[^&]*\)/\1,GitHub_Release/')
-      fi
-
-      [[ "$url" != *"format="* ]] && url="${url}${sep}format=markdown"
-      ;;
-
+        [[ "$url" != *"avatar_url="* ]] && url="${url}${sep}avatar_url=${encoded_icon}" && sep="&"
+        
+        if [[ "$url" != *"tags="* ]]; then
+            url="${url}${sep}tags=GitHub_Release"
+            sep="&"
+        else
+            url=$(echo "$url" | sed 's/\(tags=[^&]*\)/\1,GitHub_Release/')
+        fi
+        
+        [[ "$url" != *"format="* ]] && url="${url}${sep}format=markdown"
+    ;;
+    
     discord)
-      [[ "$url" != *"avatar="*     ]] && url="${url}${sep}avatar=yes" && sep="&"
-      [[ "$url" != *"avatar_url="* ]] && url="${url}${sep}avatar_url=${encoded_icon}"
-      ;;
-
+        [[ "$url" != *"avatar="*     ]] && url="${url}${sep}avatar=yes" && sep="&"
+        [[ "$url" != *"avatar_url="* ]] && url="${url}${sep}avatar_url=${encoded_icon}"
+    ;;
+    
     mailto|mailtos)
-      [[ "$url" != *"from="* ]] && url="${url}${sep}from=GitHub_Actions"
-      ;;
-  esac
+        [[ "$url" != *"from="* ]] && url="${url}${sep}from=GitHub_Actions"
+    ;;
+esac
 
-  echo "$url"
+echo "$url"
 }
 
 # ─── Markdown convert ─────────────────────────────────────────────────────────
 convert_markdown() {
-  local target_channel="$1"
-  local text="$2"
+local target_channel="$1"
+local text="$2"
 
-  python3 -c '
+python3 -c '
 import sys, re
 
 target = sys.argv[1]
@@ -420,35 +420,32 @@ if [[ -n "${URLS_INPUT}" ]]; then
 
   while IFS= read -r raw_url; do
     raw_url=$(echo "$raw_url" | tr -d ' ,')
-
     [[ -z "$raw_url" ]] && continue
 
     local_scheme="${raw_url%%://*}"
-
     url=$(decorate_url "$raw_url" "$ICON_URL")
 
     fmt="text"
-
     case "${local_scheme,,}" in
       ntfy*|slack*|dingtalk*|mattermost*|matrix*|rocket*|discord*|telegram)
-        fmt="markdown"
-        ;;
+        fmt="markdown" ;;
       email|mailto|mailtos)
-        fmt="html"
-        ;;
+        fmt="html" ;;
       bark*)
-        fmt="text"
-        ;;
+        fmt="text" ;;
     esac
 
-    formatted_message="$MESSAGE"
-
+    # ── 根据格式选择对应的 summary 块，与具名渠道保持一致 ──────────────────────
     if [[ "$fmt" == "html" ]]; then
       formatted_message=$(convert_markdown "Email" "$MESSAGE")
+      generic_body="${SUMMARY_SECTION_HTML}${formatted_message}<br><br><a href=\"${RELEASE_URL}\">${RELEASE_URL}</a>"
 
-      generic_body="${formatted_message}<br><br><a href=\"${RELEASE_URL}\">${RELEASE_URL}</a>"
+    elif [[ "$fmt" == "markdown" ]]; then
+      generic_body="${SUMMARY_SECTION_MD}${MESSAGE}"$'\n\n'"${RELEASE_URL}"
+
     else
-      generic_body="${formatted_message}"$'\n\n'"${RELEASE_URL}"
+      # text（Bark 等）
+      generic_body="${SUMMARY_SECTION_TEXT}${MESSAGE}"$'\n\n'"${RELEASE_URL}"
     fi
 
     echo "📤 [generic:${local_scheme}] Sending..."

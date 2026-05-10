@@ -23,6 +23,7 @@ runs:
         # Release metadata
         INPUT_VERSION: ${{ inputs.version }}
         INPUT_RELEASE_URL: ${{ inputs.release_url }}
+        INPUT_SUMMARY: ${{ inputs.summary }}
         INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
         INPUT_AUTHOR: ${{ inputs.author }}
 

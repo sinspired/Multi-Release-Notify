@@ -30,8 +30,7 @@ jobs:
               uses: ./
               with:
                   # release 事件时取 tag_name；手动触发时取 input；都为空则脚本自动检测
-                  version: ${{ github.event.release.tag_name || inputs.version }}
-                  release_url: ${{ github.event.release.html_url }}
+                  summary: "增加了多渠道发布通知支持，包括 Slack、Telegram、Email、Bark、Ntfy 和 DingTalk。"
                   # release body 有内容则直接用；为空则脚本自动从 git log 生成
                   release_notes: ${{ github.event.release.body }}
                   author: ${{ github.event.release.author.login || github.actor }}
