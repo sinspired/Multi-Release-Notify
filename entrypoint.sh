@@ -24,18 +24,22 @@ if [[ -z "${CHANNELS}" && -z "${URLS_INPUT}" ]]; then
 fi
 
 # ─── VERSION: resolve with priority chain ─────────────────────────────────────
-# 1. Explicit input (e.g. github.event.release.tag_name from workflow)
-# 2. Current tag on HEAD via git describe (works for both release & dispatch)
-# 3. Branch name extracted from GITHUB_REF
-# 4. Raw GITHUB_REF as last resort
+# 1. Explicit input  (github.event.release.tag_name or workflow input)
+# 2. git describe    (requires fetch-depth:0 in checkout; tried first)
+# 3. Tag from GITHUB_REF when on a tag push
+# 4. Branch name     (last resort — indicates shallow clone / no tags)
 if [[ -z "${VERSION}" ]]; then
   GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
   if [[ -n "${GIT_TAG}" ]]; then
     VERSION="${GIT_TAG}"
+    echo "ℹ️  VERSION auto-detected from git tag: ${VERSION}"
   elif [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]]; then
     VERSION="${GITHUB_REF#refs/tags/}"
+    echo "ℹ️  VERSION taken from GITHUB_REF tag: ${VERSION}"
   elif [[ "${GITHUB_REF:-}" =~ ^refs/heads/ ]]; then
     VERSION="${GITHUB_REF#refs/heads/}"
+    echo "⚠️  No git tags found — VERSION falls back to branch: ${VERSION}"
+    echo "⚠️  Add 'fetch-depth: 0' to actions/checkout to enable tag detection."
   else
     VERSION="${GITHUB_REF:-unknown}"
   fi

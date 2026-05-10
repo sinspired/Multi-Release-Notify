@@ -1,25 +1,40 @@
 # .github/workflows/release-notify.yml
 name: Release Notification
 
-# ─── 触发条件：发布 Release 或手动触发 ─────────────────────────
+# ─── 触发条件 ──────────────────────────────────────────────────────────────────
 on:
+    # 正式发布 Release 时自动触发
     release:
         types: [published]
-    workflow_dispatch: {}
+
+    # 手动触发 — 可选填 version，留空则自动从最新 tag 检测
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "版本号（如 v1.2.0），留空则自动从 git tag 检测"
+                required: false
+                default: ""
 
 jobs:
     notify:
         name: Send Release Notifications
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v6
+            # ⚠️ fetch-depth: 0 是关键 —— 拉取完整历史和所有 tag，
+            #    否则 git describe / git log 无法跨 tag 工作。
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
             - name: Send release notification
               uses: ./
               with:
-                  version: ${{ github.event.release.tag_name }}
+                  # release 事件时取 tag_name；手动触发时取 input；都为空则脚本自动检测
+                  version: ${{ github.event.release.tag_name || inputs.version }}
                   release_url: ${{ github.event.release.html_url }}
+                  # release body 有内容则直接用；为空则脚本自动从 git log 生成
                   release_notes: ${{ github.event.release.body }}
-                  author: ${{ github.event.release.author.login }}
+                  author: ${{ github.event.release.author.login || github.actor }}
                   channels: email,telegram,ntfy,slack
                   email_url: ${{ secrets.EMAIL_APPRISE_URL }}
                   telegram_url: ${{ secrets.TELEGRAM_APPRISE_URL }}
