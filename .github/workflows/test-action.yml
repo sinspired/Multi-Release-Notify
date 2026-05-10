@@ -11,12 +11,19 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - name: Run local action with ntfy test topic
+            - name: Run local action with realistic release metadata
               uses: ./
               with:
-                  version: v0.0.1
-                  release_url: https://github.com/example/example/releases/tag/v0.0.1
+                  version: v1.0.0
+                  release_url: https://github.com/${{ github.repository }}/releases/tag/v1.0.0
                   release_notes: |
-                      Local test run for action validation.
-                  author: github-actions
+                      ## What's new
+                      - Added multi-channel release notifications for Slack, Telegram, Bark, Ntfy, and DingTalk
+                      - Added automatic release title generation and template rendering
+                      - Fixed URL decoration for icons and tags
+
+                      ## Bug fixes
+                      - Fixed invalid `stdout://` test URL
+                      - Corrected Apprise CLI notification option handling
+                  author: ${{ github.actor }}
                   urls: ntfy://github-multi-release-notify-test
