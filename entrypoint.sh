@@ -210,11 +210,7 @@ fi
 if [[ -n "${URLS_INPUT}" ]]; then
   echo "─── Generic URLs ────────────────────────────────────────────────"
 
-  generic_body="Repository : ${REPOSITORY}
-Version    : ${VERSION}
-Author     : ${AUTHOR}
-
-${MESSAGE}
+  generic_body="${MESSAGE}
 
 ${RELEASE_URL}"
 
@@ -225,11 +221,24 @@ ${RELEASE_URL}"
     local_scheme="${raw_url%%://*}"
     url=$(decorate_url "$raw_url" "$ICON_URL")
 
+    fmt="text"
+    case "${local_scheme,,}" in
+      ntfy*|slack*|dingtalk*|mattermost*|matrix*|rocket*|discord*|telegram)
+        fmt="markdown"
+        ;;
+      email|mailto|mailtos)
+        fmt="html"
+        ;;
+      bark*)
+        fmt="text"
+        ;;
+    esac
+
     echo "📤 [generic:${local_scheme}] Sending..."
     if apprise \
         --title        "${TITLE}"        \
         --body         "${generic_body}" \
-        --input-format "text"            \
+        --input-format "${fmt}"            \
         --notification-type  "${NOTIFY_TYPE}"  \
         "${url}"; then
       echo "✅ [generic:${local_scheme}] Sent."
