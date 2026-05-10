@@ -2,6 +2,16 @@ name: "Multi Release Notify"
 description: "Send multi-channel release and CI/CD notifications using Apprise to Slack, Telegram, Email, Bark, Ntfy, DingTalk, or any supported Apprise channel."
 author: "sinpired"
 
+runs:
+  using: "composite"
+  steps:
+    - name: Install dependencies
+      run: pip install apprise markdown
+      shell: bash
+    - name: Run notification script
+      run: bash ${{ github.action_path }}/entrypoint.sh
+      shell: bash
+
 branding:
   icon: "bell"
   color: "green"
@@ -102,7 +112,3 @@ inputs:
     description: "Path to custom DingTalk Markdown template"
     required: false
     default: ""
-
-runs:
-  using: "docker"
-  image: "Dockerfile"
