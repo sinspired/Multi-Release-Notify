@@ -20,7 +20,7 @@ jobs:
                   release_url: ${{ github.event.release.html_url }}
                   release_notes: ${{ github.event.release.body }}
                   author: ${{ github.event.release.author.login }}
-                  channels: email,telegram,,ntfy,slack
+                  channels: email,telegram,ntfy,slack
                   email_url: ${{ secrets.EMAIL_APPRISE_URL }}
                   telegram_url: ${{ secrets.TELEGRAM_APPRISE_URL }}
                   slack_url: ${{ secrets.SLACK_APPRISE_URL }}
