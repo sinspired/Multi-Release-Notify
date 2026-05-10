@@ -26,7 +26,7 @@ jobs:
         steps:
             # ⚠️ fetch-depth: 0 是关键 —— 拉取完整历史和所有 tag，
             #    否则 git describe / git log 无法跨 tag 工作。
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v6
               with:
                   fetch-depth: 0
 
@@ -39,7 +39,7 @@ jobs:
                   # release body 有内容则直接用；为空则脚本自动从 git log 生成
                   release_notes: ${{ github.event.release.body }}
                   author: ${{ github.event.release.author.login || github.actor }}
-                  channels: ${{ inputs.channels || 'email,telegram,ntfy,slack' }}
+
                   urls: ${{ inputs.urls }}
                   email_url: ${{ secrets.EMAIL_APPRISE_URL }}
                   telegram_url: ${{ secrets.TELEGRAM_APPRISE_URL }}
