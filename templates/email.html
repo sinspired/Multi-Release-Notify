@@ -13,11 +13,21 @@
             margin: 0; padding: 0;
             background: #0d1117;
             font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
 
         .shell {
-            max-width: 620px;
-            margin: 40px auto;
+            width: 94%;
+            max-width: 680px;
+            margin: 32px auto;
+        }
+
+        /* 基础链接悬停效果 */
+        a.interactive-link {
+            text-decoration: none;
+        }
+        a.interactive-link:hover {
+            text-decoration: underline;
         }
 
         /* ── Header ── */
@@ -26,7 +36,7 @@
             border: 1px solid #30363d;
             border-bottom: none;
             border-radius: 12px 12px 0 0;
-            padding: 36px 36px 0;
+            padding: 32px 32px 0;
             position: relative;
             overflow: hidden;
         }
@@ -43,16 +53,24 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 24px;
+            gap: 16px;
         }
 
+        /* 仓库名：必须加 !important 避免被邮箱客户端强行变成蓝色 */
         .repo-name {
+            flex: 1;
+            min-width: 0;
             font-size: 14px;
-            color: #8b949e;
             font-weight: 500;
             letter-spacing: 0.01em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #8b949e !important; 
         }
 
         .status-badge {
+            flex-shrink: 0;
             background: #1a3a25;
             color: #56d364;
             border: 1px solid #2ea043;
@@ -61,6 +79,7 @@
             font-size: 11px; font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.08em;
+            white-space: nowrap;
         }
 
         /* Version Info Layout */
@@ -72,10 +91,15 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 46px;
             font-weight: 800;
-            color: #f0f6fc;
             letter-spacing: -1.5px;
             line-height: 1.1;
             margin: 0 0 8px 0;
+            word-break: break-word;
+        }
+
+        /* 版本号：必须加 !important */
+        .version-number a {
+            color: #f0f6fc !important;
         }
 
         .released-by {
@@ -86,10 +110,11 @@
             margin: 0;
         }
 
+        /* 作者名：必须加 !important */
         .author-name {
-            color: #e6edf3;
             font-weight: 600;
             margin-right: 5px;
+            color: #e6edf3 !important;
         }
 
         .header-fade {
@@ -103,7 +128,7 @@
         .body-section {
             background: #0d1117;
             border: 1px solid #30363d; border-top: none;
-            padding: 0 36px 32px;
+            padding: 0 32px 32px;
         }
 
         .divider {
@@ -182,25 +207,39 @@
             background: #0d1117;
             border: 1px solid #30363d; border-top: none;
             border-radius: 0 0 12px 12px;
-            padding: 16px 36px 24px;
+            padding: 16px 32px 24px;
             text-align: center; color: #484f58; font-size: 12px;
+            white-space: nowrap; 
         }
 
         .footer a { color: #58a6ff; text-decoration: none; }
+
+        /* ── Responsive Mobile ── */
+        @media only screen and (max-width: 600px) {
+            .shell { margin: 20px auto; width: 96%; }
+            .header { padding: 24px 16px 0; }
+            .body-section { padding: 0 16px 24px; }
+            .footer { padding: 16px 16px 20px; font-size: 11px; }
+            
+            .version-number { font-size: 38px; }
+            .notes-body { padding: 16px; }
+        }
     </style>
 </head>
 <body>
     <div class="shell">
         <div class="header">
             <div class="header-top">
-                <span class="repo-name">◈ {REPOSITORY}</span>
+                <a href="https://github.com/{REPOSITORY}" class="interactive-link repo-name" title="{REPOSITORY}">◈ {REPOSITORY}</a>
                 <span class="status-badge">{STATUS_TEXT}</span>
             </div>
 
             <div class="version-block">
-                <h1 class="version-number">{VERSION}</h1>
+                <h1 class="version-number">
+                    <a href="{RELEASE_URL}" class="interactive-link">{VERSION}</a>
+                </h1>
                 <div class="released-by">
-                    <span class="author-name">{AUTHOR}</span> released this
+                    <a href="https://github.com/{AUTHOR}" class="interactive-link author-name">{AUTHOR}</a> released this
                 </div>
             </div>
         </div>
@@ -216,7 +255,6 @@
                     <span class="notes-label">Release Notes</span>
                 </div>
                 <div class="notes-body">
-                    <!-- Markdown or Text injected here -->
                     {MESSAGE}
                 </div>
             </div>
