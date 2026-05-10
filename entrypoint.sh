@@ -40,6 +40,14 @@ else
   TITLE="${REPOSITORY} updated to ${VERSION}"
 fi
 
+# ─── Generate release notes from commits if tag push and no message ──────────
+if [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]] && [[ -z "${INPUT_MESSAGE:-}" ]] && [[ -z "${INPUT_RELEASE_NOTES:-}" ]]; then
+  LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+  if [[ -n "$LAST_TAG" ]]; then
+    RELEASE_NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD)
+  fi
+fi
+
 # ─── Message body ─────────────────────────────────────────────────────────────
 MESSAGE="${INPUT_MESSAGE:-${RELEASE_NOTES:-No release notes provided.}}"
 
