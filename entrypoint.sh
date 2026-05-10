@@ -68,10 +68,12 @@ decorate_url() {
       [[ "$url" != *"avatar_url="* ]] && url="${url}${sep}avatar_url=${encoded_icon}" && sep="&"
       if [[ "$url" != *"tags="* ]]; then
         url="${url}${sep}tags=GitHub_Release"
+        sep="&"
       else
         # Append tag without replacing existing ones
         url=$(echo "$url" | sed 's/\(tags=[^&]*\)/\1,GitHub_Release/')
       fi
+      [[ "$url" != *"format="* ]] && url="${url}${sep}format=markdown"
       ;;
     discord)
       [[ "$url" != *"avatar="*     ]] && url="${url}${sep}avatar=yes"              && sep="&"
