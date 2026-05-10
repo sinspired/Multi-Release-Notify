@@ -8,31 +8,33 @@ runs:
     - name: Install dependencies
       run: python3 -m pip install --break-system-packages apprise markdown
       shell: bash
-      
+
     - name: Run notification script
       run: bash ${{ github.action_path }}/entrypoint.sh
       shell: bash
-      # 👇 核心修复：Composite Action 必须显式传递 inputs 为环境变量
       env:
+        # Core
         INPUT_STATUS: ${{ inputs.status }}
-        INPUT_CHANNELS: ${{ inputs.channels }}
         INPUT_URLS: ${{ inputs.urls }}
         INPUT_TITLE: ${{ inputs.title }}
         INPUT_MESSAGE: ${{ inputs.message }}
         INPUT_ICON_URL: ${{ inputs.icon_url }}
-        
+
+        # Release metadata
         INPUT_VERSION: ${{ inputs.version }}
         INPUT_RELEASE_URL: ${{ inputs.release_url }}
         INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
         INPUT_AUTHOR: ${{ inputs.author }}
-        
+
+        # Channel URLs
         INPUT_EMAIL_URL: ${{ inputs.email_url }}
         INPUT_TELEGRAM_URL: ${{ inputs.telegram_url }}
         INPUT_BARK_URL: ${{ inputs.bark_url }}
         INPUT_NTFY_URL: ${{ inputs.ntfy_url }}
         INPUT_SLACK_URL: ${{ inputs.slack_url }}
         INPUT_DINGTALK_URL: ${{ inputs.dingtalk_url }}
-        
+
+        # Templates
         INPUT_EMAIL_TEMPLATE: ${{ inputs.email_template }}
         INPUT_TELEGRAM_TEMPLATE: ${{ inputs.telegram_template }}
         INPUT_BARK_TEMPLATE: ${{ inputs.bark_template }}
@@ -50,22 +52,22 @@ inputs:
     description: "Job status: success, failure, cancelled, released"
     required: false
     default: "released"
-  channels:
-    description: "Comma-separated list: email, telegram, bark, ntfy, slack, dingtalk"
-    required: false
-    default: ""
+
   urls:
     description: "Generic fallback — any Apprise URL(s), comma- or newline-separated"
     required: false
     default: ""
+
   title:
     description: "Custom title. Auto-generated from repo + version if omitted."
     required: false
     default: ""
+
   message:
     description: "Custom body. Uses release_notes if omitted."
     required: false
     default: ""
+
   icon_url:
     description: "Icon URL injected into Bark, Ntfy, and Discord URLs automatically."
     required: false
@@ -76,14 +78,17 @@ inputs:
     description: "Release tag, e.g. v1.2.0"
     required: false
     default: ""
+
   release_url:
     description: "URL to the GitHub Release page"
     required: false
     default: ""
+
   release_notes:
     description: "Release body / changelog"
     required: false
     default: ""
+
   author:
     description: "Publisher username. Defaults to github.actor."
     required: false
@@ -94,48 +99,58 @@ inputs:
     description: "e.g. mailtos://user:pass@smtp.example.com?to=dest@example.com"
     required: false
     default: ""
+
   telegram_url:
     description: "e.g. tgram://bottoken/chatid"
     required: false
     default: ""
+
   bark_url:
     description: "e.g. bark://device_key@api.day.app"
     required: false
     default: ""
+
   ntfy_url:
     description: "e.g. ntfy://topic or ntfys://user:pass@host/topic"
     required: false
     default: ""
+
   slack_url:
     description: "e.g. slack://xoxb-token/#channel"
     required: false
     default: ""
+
   dingtalk_url:
     description: "e.g. dingtalk://access_token"
     required: false
     default: ""
 
-  # Custom template paths (relative to repo root)
+  # Custom template paths
   email_template:
     description: "Path to custom HTML email template"
     required: false
     default: ""
+
   telegram_template:
     description: "Path to custom Telegram HTML template"
     required: false
     default: ""
+
   bark_template:
     description: "Path to custom Bark plain-text template"
     required: false
     default: ""
+
   ntfy_template:
     description: "Path to custom Ntfy Markdown template"
     required: false
     default: ""
+
   slack_template:
     description: "Path to custom Slack Markdown template"
     required: false
     default: ""
+
   dingtalk_template:
     description: "Path to custom DingTalk Markdown template"
     required: false
