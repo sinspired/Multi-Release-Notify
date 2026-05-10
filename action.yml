@@ -6,12 +6,39 @@ runs:
   using: "composite"
   steps:
     - name: Install dependencies
-      # 使用 --break-system-packages 兼容 Ubuntu 24.04+ Runner 的 PEP 668 限制
       run: python3 -m pip install --break-system-packages apprise markdown
       shell: bash
+      
     - name: Run notification script
       run: bash ${{ github.action_path }}/entrypoint.sh
       shell: bash
+      # 👇 核心修复：Composite Action 必须显式传递 inputs 为环境变量
+      env:
+        INPUT_STATUS: ${{ inputs.status }}
+        INPUT_CHANNELS: ${{ inputs.channels }}
+        INPUT_URLS: ${{ inputs.urls }}
+        INPUT_TITLE: ${{ inputs.title }}
+        INPUT_MESSAGE: ${{ inputs.message }}
+        INPUT_ICON_URL: ${{ inputs.icon_url }}
+        
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_RELEASE_URL: ${{ inputs.release_url }}
+        INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
+        INPUT_AUTHOR: ${{ inputs.author }}
+        
+        INPUT_EMAIL_URL: ${{ inputs.email_url }}
+        INPUT_TELEGRAM_URL: ${{ inputs.telegram_url }}
+        INPUT_BARK_URL: ${{ inputs.bark_url }}
+        INPUT_NTFY_URL: ${{ inputs.ntfy_url }}
+        INPUT_SLACK_URL: ${{ inputs.slack_url }}
+        INPUT_DINGTALK_URL: ${{ inputs.dingtalk_url }}
+        
+        INPUT_EMAIL_TEMPLATE: ${{ inputs.email_template }}
+        INPUT_TELEGRAM_TEMPLATE: ${{ inputs.telegram_template }}
+        INPUT_BARK_TEMPLATE: ${{ inputs.bark_template }}
+        INPUT_NTFY_TEMPLATE: ${{ inputs.ntfy_template }}
+        INPUT_SLACK_TEMPLATE: ${{ inputs.slack_template }}
+        INPUT_DINGTALK_TEMPLATE: ${{ inputs.dingtalk_template }}
 
 branding:
   icon: "bell"
