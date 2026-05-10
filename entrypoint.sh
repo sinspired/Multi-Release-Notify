@@ -118,20 +118,32 @@ target = sys.argv[1]
 text = sys.stdin.read()
 is_md = bool(re.search(r"(\*\*.*?\*\*|__.*?__|#+\s|-\s|\*\s|`.*?`|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))", text))
 
-# === Telegram 专供解析（不支持 <ul> <li> 和 <p>）===
+# === Telegram 专供解析（支持 <pre> 内嵌套 <b>）===
 if target == "Telegram":
     if not is_md:
         print(text, end="")
         sys.exit(0)
-    # 粗体/斜体/代码
+    
+    # 1. 转换标题：将 # 到 ###### 转换为加粗 <b>标题</b>
+    text = re.sub(r"^(#{1,6})\s+(.*)$", r"<b>\2</b>", text, flags=re.MULTILINE)
+    
+    # 2. 转换粗体
     text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
-    text = re.sub(r"\*(.*?)\*", r"<i>\1</i>", text)
-    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
-    text = re.sub(r"```([^`]+)```", r"<pre>\1</pre>", text, flags=re.DOTALL)
-    # 列表转为特殊的圆点（避免使用 Telegram 不支持的 <li>）
+    text = re.sub(r"__(.*?)__", r"<b>\1</b>", text)
+    
+    # 3. 转换斜体
+    text = re.sub(r"(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)", r"<i>\1</i>", text)
+    
+    # 4. 转换列表：将 - 和 * 转为特殊的圆点（避免使用 Telegram 不支持的 <li>）
     text = re.sub(r"^\s*-\s+(.*)$", r"• \1", text, flags=re.MULTILINE)
-    # Markdown 链接转 HTML
+    text = re.sub(r"^\s*\*\s+(.*)$", r"• \1", text, flags=re.MULTILINE)
+    
+    # 5. 转换链接
     text = re.sub(r"\[(.*?)\]\((.*?)\)", r"<a href=\"\2\">\1</a>", text)
+    
+    # 6. 移除 Markdown 原生的代码块 ```（因为外层模板会包 <pre>，防止嵌套报错）
+    text = re.sub(r"```[a-zA-Z0-9]*\n(.*?)\n```", r"\1", text, flags=re.DOTALL)
+    
     print(text, end="")
     sys.exit(0)
 
