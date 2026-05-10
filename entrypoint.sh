@@ -23,10 +23,16 @@ if [[ -z "${CHANNELS}" && -z "${URLS_INPUT}" ]]; then
   exit 1
 fi
 
-# ─── VERSION: fallback to branch name when not set or on a non-tag ref ────────
-# Priority: explicit input → tag name → branch name → GITHUB_REF raw
+# ─── VERSION: resolve with priority chain ─────────────────────────────────────
+# 1. Explicit input (e.g. github.event.release.tag_name from workflow)
+# 2. Current tag on HEAD via git describe (works for both release & dispatch)
+# 3. Branch name extracted from GITHUB_REF
+# 4. Raw GITHUB_REF as last resort
 if [[ -z "${VERSION}" ]]; then
-  if [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]]; then
+  GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+  if [[ -n "${GIT_TAG}" ]]; then
+    VERSION="${GIT_TAG}"
+  elif [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]]; then
     VERSION="${GITHUB_REF#refs/tags/}"
   elif [[ "${GITHUB_REF:-}" =~ ^refs/heads/ ]]; then
     VERSION="${GITHUB_REF#refs/heads/}"
@@ -52,32 +58,27 @@ else
   TITLE="${REPOSITORY} updated to ${VERSION}"
 fi
 
-# ─── Release notes: auto-generate from commits between tags if not provided ───
-# Runs when: on a tag push AND neither message nor release_notes is supplied.
-# Uses HEAD^ to resolve the *previous* tag so the range is [prev..current].
-# Output format: "· commit subject" lines — no hashes.
-if [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]] && \
-   [[ -z "${INPUT_MESSAGE:-}" ]]           && \
-   [[ -z "${INPUT_RELEASE_NOTES:-}" ]]; then
+# ─── Release notes: auto-generate from commits between tags ───────────────────
+# Runs whenever neither message nor release_notes is provided — covers both
+# the `release` event (empty body) and manual `workflow_dispatch` triggers.
+# Range: [previous tag .. HEAD], subject-only (%s), no hashes.
+if [[ -z "${INPUT_MESSAGE:-}" ]] && [[ -z "${RELEASE_NOTES}" ]]; then
 
-  # Find the tag that precedes HEAD (i.e. the previous release)
+  # HEAD^ walks back one commit; git describe then finds the nearest ancestor
+  # tag — this is the *previous* release, not the current one.
   PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
   if [[ -n "${PREV_TAG}" ]]; then
-    # %s = subject only; no hash, no author
     RAW_LOG=$(git log --pretty=format:"%s" "${PREV_TAG}..HEAD" 2>/dev/null || echo "")
     if [[ -n "${RAW_LOG}" ]]; then
-      # Prefix each line with a bullet for readability
       RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /')
     else
-      RELEASE_NOTES="No commits since ${PREV_TAG}."
+      RELEASE_NOTES="No new commits since ${PREV_TAG}."
     fi
   else
-    # No previous tag — fall back to all commits up to HEAD
+    # No previous tag at all — show the most recent 20 commits
     RAW_LOG=$(git log --pretty=format:"%s" 2>/dev/null | head -20 || echo "")
-    if [[ -n "${RAW_LOG}" ]]; then
-      RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /')
-    fi
+    [[ -n "${RAW_LOG}" ]] && RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /')
   fi
 fi
 

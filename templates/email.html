@@ -112,10 +112,12 @@
             font-weight: 600;
         }
 
-        /* Separator wave / fade */
+        /* Separator wave / fade — must carry left & right borders to bridge the gap */
         .header-fade {
             height: 32px;
             background: linear-gradient(180deg, #161b22 0%, #0d1117 100%);
+            border-left: 1px solid #30363d;
+            border-right: 1px solid #30363d;
         }
 
         /* ── Body ── */
