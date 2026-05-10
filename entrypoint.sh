@@ -45,16 +45,11 @@ SUMMARY_SECTION_TEXT=""
 
 if [[ -n "${SUMMARY}" ]]; then
     
-    # Email HTML 格式：完整的 summary 卡片（复用 notes-card 样式，蓝色强调）
+# Email HTML 格式：callout 样式（轻量左边框，与 notes-card 形成层级对比）
   SUMMARY_SECTION_HTML=$(cat <<HEREDOC
-<div class="notes-card" style="margin-bottom:16px;">
-  <div class="notes-header">
-    <div class="dot" style="background:#58a6ff;"></div>
-    <span class="notes-label">Summary</span>
-  </div>
-  <div class="notes-body" style="color:#e6edf3;">
-    ${SUMMARY}
-  </div>
+<div class="summary-callout">
+  <div class="summary-callout-label">📋 Summary</div>
+  <div class="summary-callout-body">${SUMMARY}</div>
 </div>
 HEREDOC
 )
