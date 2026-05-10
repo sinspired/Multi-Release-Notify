@@ -18,6 +18,12 @@ AUTHOR="${INPUT_AUTHOR:-${GITHUB_ACTOR:-unknown}}"
 ICON_URL="${INPUT_ICON_URL:-https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png}"
 
 # ─── Guard: require at least one destination ──────────────────────────────────
+# If channels is empty and it's a workflow_dispatch, set default channels
+if [[ -z "${CHANNELS}" && "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
+  CHANNELS="email,telegram,ntfy,slack"
+  echo "ℹ️  Using default channels for manual trigger: ${CHANNELS}"
+fi
+
 if [[ -z "${CHANNELS}" && -z "${URLS_INPUT}" ]]; then
   echo "::error::No destination configured. Set 'channels' and/or 'urls'."
   exit 1
