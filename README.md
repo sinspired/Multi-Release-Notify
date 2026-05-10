@@ -13,6 +13,8 @@ with format-optimized built-in templates and zero manual configuration.
 
 - **Release-aware** — first-class support for `release: [published]` events; auto-generates
   titles like `owner/repo updated to v1.2.0`
+- **Auto-generate release notes** — if no `release_notes` is provided, automatically generates
+  commit messages from the previous tag to HEAD (subject-only, no hashes)
 - **Automatic format injection** — HTML for Email & Telegram, Markdown for Ntfy / Slack /
   DingTalk, plain text for Bark; set per-channel automatically, no configuration needed
 - **URL decoration** — injects `icon`, `group`, `tags`, `avatar_url`, and `from` into
@@ -39,43 +41,48 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for git tag detection
       - uses: sinspired/multi-release-notify@v1
         with:
-          version:       ${{ github.event.release.tag_name }}
-          release_url:   ${{ github.event.release.html_url }}
-          release_notes: ${{ github.event.release.body }}
-          author:        ${{ github.event.release.author.login }}
           channels:      email,telegram,bark
           email_url:     ${{ secrets.EMAIL_APPRISE_URL }}
           telegram_url:  ${{ secrets.TELEGRAM_APPRISE_URL }}
           bark_url:      ${{ secrets.BARK_APPRISE_URL }}
 ```
 
-### Local self-test workflow
+### Manual trigger with custom inputs
 
-Use the built-in local test workflow to validate the action without requiring external notification secrets.
+Manually dispatch the workflow with custom channels or URLs:
 
 ```yaml
-name: Action self-test
+name: Release Notification
 on:
+  release:
+    types: [published]
   workflow_dispatch:
-  push:
-    branches: [main]
+    inputs:
+      channels:
+        description: "Notification channels (email,telegram,slack,etc.) — optional if urls provided"
+        required: false
+      urls:
+        description: "Generic Apprise URLs (comma or newline separated) — optional if channels provided"
+        required: false
 
 jobs:
-  self-test:
+  notify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run local action with ntfy test topic
-        uses: ./
         with:
-          version:       v0.0.1
-          release_url:   https://github.com/example/example/releases/tag/v0.0.1
-          release_notes: |
-            Local test run for action validation.
-          author:        github-actions
-          urls:          ntfy://github-multi-release-notify-test
+          fetch-depth: 0
+      - uses: sinspired/multi-release-notify@v1
+        with:
+          channels:      ${{ inputs.channels }}
+          urls:          ${{ inputs.urls }}
+          email_url:     ${{ secrets.EMAIL_APPRISE_URL }}
+          telegram_url:  ${{ secrets.TELEGRAM_APPRISE_URL }}
+          slack_url:     ${{ secrets.SLACK_APPRISE_URL }}
 ```
 
 ### CI/CD status notification
@@ -111,8 +118,8 @@ jobs:
 | Input | Description | Default |
 |-------|-------------|---------|
 | `status` | `success`, `failure`, `cancelled`, `released`, or any string | `released` |
-| `channels` | Comma-separated: `email`, `telegram`, `bark`, `ntfy`, `slack`, `dingtalk` | |
-| `urls` | Generic fallback: any Apprise URL(s), comma- or newline-separated | |
+| `channels` | Comma-separated: `email`, `telegram`, `bark`, `ntfy`, `slack`, `dingtalk` | (optional if `urls` provided) |
+| `urls` | Generic fallback: any Apprise URL(s), comma- or newline-separated | (optional if `channels` provided) |
 | `title` | Custom title. Auto-generated from repo + version if omitted. | |
 | `message` | Custom body. Uses `release_notes` if omitted. | |
 | `icon_url` | Icon URL injected into Bark, Ntfy, and Discord URLs | GitHub logo |
