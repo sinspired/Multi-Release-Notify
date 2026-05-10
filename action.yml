@@ -1,5 +1,5 @@
 name: "Multi Release Notify"
-description: "Send multi-channel release and CI/CD notifications using Apprise to Slack, Telegram, Email, Bark, Ntfy, DingTalk, or any supported Apprise channel."
+description: "Send release and CI/CD notifications to Slack, Telegram, Email, Ntfy, Bark, and more via Apprise."
 author: "sinpired"
 
 runs:
