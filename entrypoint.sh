@@ -30,31 +30,26 @@ if [[ -z "${CHANNELS}" && -z "${URLS_INPUT}" ]]; then
   fi
 fi
 
-# ─── VERSION: resolve with priority chain ─────────────────────────────────────
+# ─── VERSION ──────────────────────────────────────────────────────────────────
 if [[ -z "${VERSION}" ]]; then
   GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
   if [[ -n "${GIT_TAG}" ]]; then
     VERSION="${GIT_TAG}"
-    echo "ℹ️  VERSION auto-detected from git tag: ${VERSION}"
   elif [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]]; then
     VERSION="${GITHUB_REF#refs/tags/}"
-    echo "ℹ️  VERSION taken from GITHUB_REF tag: ${VERSION}"
   elif [[ "${GITHUB_REF:-}" =~ ^refs/heads/ ]]; then
     VERSION="${GITHUB_REF#refs/heads/}"
-    echo "⚠️  No git tags found — VERSION falls back to branch: ${VERSION}"
   else
     VERSION="${GITHUB_REF:-unknown}"
   fi
 fi
 
-# ─── 修复：自动补全 RELEASE_URL ───────────────────────────────────────────────
 if [[ -z "${RELEASE_URL}" ]]; then
   if [[ "${VERSION}" != "unknown" && "${VERSION}" != "main" && "${VERSION}" != "master" ]]; then
     RELEASE_URL="${GITHUB_SERVER_URL}/${REPOSITORY}/releases/tag/${VERSION}"
   else
     RELEASE_URL="${GITHUB_SERVER_URL}/${REPOSITORY}/releases"
   fi
-  echo "ℹ️  RELEASE_URL auto-generated: ${RELEASE_URL}"
 fi
 
 # ─── Status ───────────────────────────────────────────────────────────────────
@@ -74,7 +69,7 @@ else
   TITLE="${REPOSITORY} updated to ${VERSION}"
 fi
 
-# ─── Release notes (修复：改用标准的 Markdown 列表前缀 "- ") ─────────────────
+# ─── Release notes ────────────────────────────────────────────────────────────
 if [[ -z "${INPUT_MESSAGE:-}" ]] && [[ -z "${RELEASE_NOTES}" ]]; then
   PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
   if [[ -n "${PREV_TAG}" ]]; then
@@ -101,11 +96,8 @@ decorate_url() {
       [[ "$url" != *"group="* ]] && url="${url}${sep}group=GitHub_Release" ;;
     ntfy*)
       [[ "$url" != *"avatar_url="* ]] && url="${url}${sep}avatar_url=${encoded_icon}" && sep="&"
-      if [[ "$url" != *"tags="* ]]; then
-        url="${url}${sep}tags=GitHub_Release" && sep="&"
-      else
-        url=$(echo "$url" | sed 's/\(tags=[^&]*\)/\1,GitHub_Release/')
-      fi
+      if [[ "$url" != *"tags="* ]]; then url="${url}${sep}tags=GitHub_Release" && sep="&"
+      else url=$(echo "$url" | sed 's/\(tags=[^&]*\)/\1,GitHub_Release/'); fi
       [[ "$url" != *"format="* ]] && url="${url}${sep}format=markdown" ;;
     discord)
       [[ "$url" != *"avatar="*     ]] && url="${url}${sep}avatar=yes" && sep="&"
@@ -116,14 +108,35 @@ decorate_url() {
   echo "$url"
 }
 
-# ─── Python Markdown Converter (修复：纯文本回退替换换行符) ────────────────────
+# ─── 分频道 Markdown 转 HTML 解析器 ──────────────────────────────────────────────
 convert_markdown() {
+  local target_channel="$1"
+  local text="$2"
   python3 -c '
 import sys, re
+target = sys.argv[1]
 text = sys.stdin.read()
 is_md = bool(re.search(r"(\*\*.*?\*\*|__.*?__|#+\s|-\s|\*\s|`.*?`|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))", text))
+
+# === Telegram 专供解析（不支持 <ul> <li> 和 <p>）===
+if target == "Telegram":
+    if not is_md:
+        print(text, end="")
+        sys.exit(0)
+    # 粗体/斜体/代码
+    text = re.sub(r"\*\*(.*?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"\*(.*?)\*", r"<i>\1</i>", text)
+    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+    text = re.sub(r"```([^`]+)```", r"<pre>\1</pre>", text, flags=re.DOTALL)
+    # 列表转为特殊的圆点（避免使用 Telegram 不支持的 <li>）
+    text = re.sub(r"^\s*-\s+(.*)$", r"• \1", text, flags=re.MULTILINE)
+    # Markdown 链接转 HTML
+    text = re.sub(r"\[(.*?)\]\((.*?)\)", r"<a href=\"\2\">\1</a>", text)
+    print(text, end="")
+    sys.exit(0)
+
+# === Email 标准解析（支持完整的 HTML 标签）===
 if not is_md:
-    # 纯文本直接将换行转换为 <br>
     print(text.replace("\n", "<br>"), end="")
     sys.exit(0)
 try:
@@ -138,14 +151,18 @@ except ImportError:
     text = re.sub(r"(?m)^(\d+)\.\s+(.*)$", r"<li>\1. \2</li>", text)
     text = re.sub(r"\n\n+", r"</p><p>", text)
     print(f"<p>{text}</p>", end="")
-' <<< "$1"
+' "$target_channel" <<< "$text"
 }
 
 # ─── Template rendering ────────────────────────────────────────────────────────
 render_template() {
-  local tpl_file="$1" fmt="$2"
+  local tpl_file="$1" fmt="$2" channel_label="$3"
   local processed_msg="$MESSAGE"
-  if [[ "$fmt" == "html" ]]; then processed_msg=$(convert_markdown "$MESSAGE"); fi
+  
+  # 根据渠道渲染对应的 HTML
+  if [[ "$fmt" == "html" ]]; then 
+    processed_msg=$(convert_markdown "$channel_label" "$MESSAGE")
+  fi
 
   TITLE="$TITLE" MESSAGE="$processed_msg" STATUS="${STATUS,,}" STATUS_TEXT="$STATUS_TEXT" \
   REPOSITORY="$REPOSITORY" AUTHOR="$AUTHOR" VERSION="$VERSION" RELEASE_URL="$RELEASE_URL" RELEASE_NOTES="$RELEASE_NOTES" \
@@ -176,7 +193,7 @@ send_channel() {
     tpl_file="$builtin_tpl"
   fi
   local body url
-  body=$(render_template "$tpl_file" "$fmt")
+  body=$(render_template "$tpl_file" "$fmt" "$label")
   url=$(decorate_url "$raw_url" "$ICON_URL")
 
   echo "📤 [${label}] Sending..."
@@ -204,6 +221,38 @@ if [[ -n "${CHANNELS}" ]]; then
       *) echo "⚠  Unknown channel: '${ch}'." ;;
     esac
   done
+fi
+
+# ─── Generic Apprise URLs ─────────────────────────────────────────────────────
+if [[ -n "${URLS_INPUT}" ]]; then
+  echo "─── Generic URLs ────────────────────────────────────────────────"
+  while IFS= read -r raw_url; do
+    raw_url=$(echo "$raw_url" | tr -d ' ,')
+    [[ -z "$raw_url" ]] && continue
+    local_scheme="${raw_url%%://*}"
+    url=$(decorate_url "$raw_url" "$ICON_URL")
+    fmt="text"
+    case "${local_scheme,,}" in
+      ntfy*|slack*|dingtalk*|mattermost*|matrix*|rocket*|discord*|telegram) fmt="markdown" ;;
+      email|mailto|mailtos) fmt="html" ;;
+      bark*) fmt="text" ;;
+    esac
+
+    formatted_message="$MESSAGE"
+    if [[ "$fmt" == "html" ]]; then
+      formatted_message=$(convert_markdown "Email" "$MESSAGE")
+      generic_body="${formatted_message}<br><br><a href=\"${RELEASE_URL}\">${RELEASE_URL}</a>"
+    else
+      generic_body="${formatted_message}\n\n${RELEASE_URL}"
+    fi
+
+    echo "📤 [generic:${local_scheme}] Sending..."
+    if apprise --title "${TITLE}" --body "${generic_body}" --input-format "${fmt}" --notification-type "${NOTIFY_TYPE}" "${url}"; then
+      echo "✅ [generic:${local_scheme}] Sent."
+    else
+      echo "::error::[generic:${local_scheme}] Failed."
+    fi
+  done < <(echo "${URLS_INPUT}" | tr ',' '\n')
 fi
 
 echo "──────────────────────────────────────────────────────────────────"
