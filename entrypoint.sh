@@ -23,6 +23,18 @@ if [[ -z "${CHANNELS}" && -z "${URLS_INPUT}" ]]; then
   exit 1
 fi
 
+# ─── VERSION: fallback to branch name when not set or on a non-tag ref ────────
+# Priority: explicit input → tag name → branch name → GITHUB_REF raw
+if [[ -z "${VERSION}" ]]; then
+  if [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]]; then
+    VERSION="${GITHUB_REF#refs/tags/}"
+  elif [[ "${GITHUB_REF:-}" =~ ^refs/heads/ ]]; then
+    VERSION="${GITHUB_REF#refs/heads/}"
+  else
+    VERSION="${GITHUB_REF:-unknown}"
+  fi
+fi
+
 # ─── Status → display text + Apprise notify-type ──────────────────────────────
 case "${STATUS,,}" in
   success|released) STATUS_TEXT="Released";  NOTIFY_TYPE="success" ;;
@@ -40,11 +52,32 @@ else
   TITLE="${REPOSITORY} updated to ${VERSION}"
 fi
 
-# ─── Generate release notes from commits if tag push and no message ──────────
-if [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]] && [[ -z "${INPUT_MESSAGE:-}" ]] && [[ -z "${INPUT_RELEASE_NOTES:-}" ]]; then
-  LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-  if [[ -n "$LAST_TAG" ]]; then
-    RELEASE_NOTES=$(git log --pretty=format:"%s" "$LAST_TAG"..HEAD)
+# ─── Release notes: auto-generate from commits between tags if not provided ───
+# Runs when: on a tag push AND neither message nor release_notes is supplied.
+# Uses HEAD^ to resolve the *previous* tag so the range is [prev..current].
+# Output format: "· commit subject" lines — no hashes.
+if [[ "${GITHUB_REF:-}" =~ ^refs/tags/ ]] && \
+   [[ -z "${INPUT_MESSAGE:-}" ]]           && \
+   [[ -z "${INPUT_RELEASE_NOTES:-}" ]]; then
+
+  # Find the tag that precedes HEAD (i.e. the previous release)
+  PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+  if [[ -n "${PREV_TAG}" ]]; then
+    # %s = subject only; no hash, no author
+    RAW_LOG=$(git log --pretty=format:"%s" "${PREV_TAG}..HEAD" 2>/dev/null || echo "")
+    if [[ -n "${RAW_LOG}" ]]; then
+      # Prefix each line with a bullet for readability
+      RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /')
+    else
+      RELEASE_NOTES="No commits since ${PREV_TAG}."
+    fi
+  else
+    # No previous tag — fall back to all commits up to HEAD
+    RAW_LOG=$(git log --pretty=format:"%s" 2>/dev/null | head -20 || echo "")
+    if [[ -n "${RAW_LOG}" ]]; then
+      RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /')
+    fi
   fi
 fi
 
@@ -123,13 +156,13 @@ def markdown_to_html(text):
         return markdown.markdown(text, extensions=['extra', 'codehilite'])
     except ImportError:
         # Fallback: basic conversion
-        text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)  # bold
-        text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)      # italic
-        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text) # inline code
-        text = re.sub(r'```([^`]+)```', r'<pre>\1</pre>', text, flags=re.DOTALL)  # code block
-        text = re.sub(r'^\s*-\s+(.*)$', r'<li>\1</li>', text, flags=re.MULTILINE)  # list items
-        text = re.sub(r'(?m)^(\d+)\.\s+(.*)$', r'<li>\1. \2</li>', text)  # numbered list
-        text = re.sub(r'\n\n', r'</p><p>', text)  # paragraphs
+        text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+        text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
+        text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+        text = re.sub(r'```([^`]+)```', r'<pre>\1</pre>', text, flags=re.DOTALL)
+        text = re.sub(r'^\s*-\s+(.*)$', r'<li>\1</li>', text, flags=re.MULTILINE)
+        text = re.sub(r'(?m)^(\d+)\.\s+(.*)$', r'<li>\1. \2</li>', text)
+        text = re.sub(r'\n\n', r'</p><p>', text)
         text = f'<p>{text}</p>'
         return text
 
@@ -159,21 +192,18 @@ PYEOF
 }
 
 # ─── Send one channel ──────────────────────────────────────────────────────────
-# Each named channel automatically receives the correct --input-format value
-# (foolproof design — users never need to configure this manually).
 send_channel() {
-  local label="$1"        # human-readable name for log output
-  local raw_url="$2"      # Apprise URL before decoration
-  local user_tpl="$3"     # user-supplied template path (repo-relative, may be empty)
-  local fmt="$4"          # --input-format: text | html | markdown
-  local builtin_tpl="$5"  # absolute path to built-in fallback template
+  local label="$1"
+  local raw_url="$2"
+  local user_tpl="$3"
+  local fmt="$4"
+  local builtin_tpl="$5"
 
   [[ -z "$raw_url" ]] && {
     echo "⚠  [${label}] Skipped — no URL configured."
     return 0
   }
 
-  # Prefer user's custom template if it exists in their workspace
   local tpl_file
   if [[ -n "$user_tpl" && \
         -f "${GITHUB_WORKSPACE:-/github/workspace}/${user_tpl}" ]]; then
@@ -204,10 +234,6 @@ send_channel() {
 }
 
 # ─── Named channel dispatch ────────────────────────────────────────────────────
-# Format mapping (automatic, per-channel):
-#   email, telegram → html      (rich rendering)
-#   ntfy, slack, dingtalk → markdown
-#   bark → text                 (iOS push — no markup support)
 TDIR="/templates"
 
 if [[ -n "${CHANNELS}" ]]; then
@@ -240,15 +266,9 @@ if [[ -n "${CHANNELS}" ]]; then
   done
 fi
 
-# ─── Generic Apprise URLs — any service Apprise supports ──────────────────────
-# Sends plain text for maximum cross-service compatibility.
-# URL decoration (icon, group, tags) is still applied per scheme.
+# ─── Generic Apprise URLs ─────────────────────────────────────────────────────
 if [[ -n "${URLS_INPUT}" ]]; then
   echo "─── Generic URLs ────────────────────────────────────────────────"
-
-  generic_body="${MESSAGE}
-
-${RELEASE_URL}"
 
   while IFS= read -r raw_url; do
     raw_url=$(echo "$raw_url" | tr -d ' ,')
@@ -260,22 +280,19 @@ ${RELEASE_URL}"
     fmt="text"
     case "${local_scheme,,}" in
       ntfy*|slack*|dingtalk*|mattermost*|matrix*|rocket*|discord*|telegram)
-        fmt="markdown"
-        ;;
+        fmt="markdown" ;;
       email|mailto|mailtos)
-        fmt="html"
-        ;;
+        fmt="html" ;;
       bark*)
-        fmt="text"
-        ;;
+        fmt="text" ;;
     esac
 
-    # Convert message to appropriate format if needed
     formatted_message="$MESSAGE"
     if [[ "$fmt" == "html" ]]; then
-        # Check if message contains markdown
-        if echo "$MESSAGE" | python3 -c 'import re, sys; print("1" if re.search(r"(\*\*.*?\*\*|__.*?__|#+\s|-\s|\*\s|\`.*?\`|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))", sys.stdin.read()) else "0")' | grep -q '1'; then
-            formatted_message=$(echo "$MESSAGE" | python3 -c '
+      if echo "$MESSAGE" | python3 -c \
+          'import re, sys; print("1" if re.search(r"(\*\*.*?\*\*|__.*?__|#+\s|-\s|\*\s|\`.*?\`|!\[.*?\]\(.*?\)|\[.*?\]\(.*?\))", sys.stdin.read()) else "0")' \
+          | grep -q '1'; then
+        formatted_message=$(echo "$MESSAGE" | python3 -c '
 import re, sys
 text = sys.stdin.read()
 try:
@@ -291,7 +308,7 @@ except ImportError:
     text = re.sub(r"\n\n", r"</p><p>", text)
     print(f"<p>{text}</p>", end="")
 ')
-        fi
+      fi
     fi
 
     generic_body="${formatted_message}
@@ -302,7 +319,7 @@ ${RELEASE_URL}"
     if apprise \
         --title        "${TITLE}"        \
         --body         "${generic_body}" \
-        --input-format "${fmt}"            \
+        --input-format "${fmt}"          \
         --notification-type  "${NOTIFY_TYPE}"  \
         "${url}"; then
       echo "✅ [generic:${local_scheme}] Sent."
