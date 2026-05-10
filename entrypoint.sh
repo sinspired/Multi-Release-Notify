@@ -4,6 +4,9 @@
 # =============================================================================
 set -euo pipefail
 
+# 确保 pip 安装的命令可用
+export PATH="$HOME/.local/bin:$PATH"
+
 # ─── Inputs ───────────────────────────────────────────────────────────────────
 STATUS="${INPUT_STATUS:-released}"
 CHANNELS="${INPUT_CHANNELS:-}"
@@ -14,7 +17,6 @@ RELEASE_NOTES="${INPUT_RELEASE_NOTES:-}"
 REPOSITORY="${GITHUB_REPOSITORY:-unknown/repo}"
 AUTHOR="${INPUT_AUTHOR:-${GITHUB_ACTOR:-unknown}}"
 ICON_URL="${INPUT_ICON_URL:-https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png}"
-# 修复核心 Bug：获取当前 Action 的正确绝对路径
 ACTION_PATH="${GITHUB_ACTION_PATH:-.}"
 
 # ─── Guard: require at least one destination ──────────────────────────────────
@@ -65,7 +67,6 @@ fi
 # ─── Release notes ────────────────────────────────────────────────────────────
 if [[ -z "${INPUT_MESSAGE:-}" ]] && [[ -z "${RELEASE_NOTES}" ]]; then
   PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-  # 添加 --no-merges 排除 PR 合并记录，使 changelog 更清晰
   if [[ -n "${PREV_TAG}" ]]; then
     RAW_LOG=$(git log --no-merges --pretty=format:"%s" "${PREV_TAG}..HEAD" 2>/dev/null || echo "")
     [[ -n "${RAW_LOG}" ]] && RELEASE_NOTES=$(echo "${RAW_LOG}" | sed 's/^/· /') || RELEASE_NOTES="No new commits since ${PREV_TAG}."
@@ -110,7 +111,6 @@ decorate_url() {
 }
 
 # ─── Python Markdown Converter Helper ──────────────────────────────────────────
-# 提取公用逻辑，避免代码重复
 convert_markdown() {
   python3 -c '
 import sys, re
@@ -139,7 +139,6 @@ render_template() {
   local tpl_file="$1"
   local fmt="$2"
   
-  # 处理 {MESSAGE} 内容格式
   local processed_msg="$MESSAGE"
   if [[ "$fmt" == "html" ]]; then
     processed_msg=$(convert_markdown "$MESSAGE")
@@ -187,8 +186,8 @@ send_channel() {
   url=$(decorate_url "$raw_url" "$ICON_URL")
 
   echo "📤 [${label}] Sending..."
-  # 修复：统一使用 python3 -m apprise，防止直接调用 apprise 时环境变量找不到的情况
-  if python3 -m apprise --title "${TITLE}" --body "${body}" --input-format "${fmt}" --notification-type "${NOTIFY_TYPE}" "${url}"; then
+  # 已经恢复为正确的 apprise 命令
+  if apprise --title "${TITLE}" --body "${body}" --input-format "${fmt}" --notification-type "${NOTIFY_TYPE}" "${url}"; then
     echo "✅ [${label}] Sent."
   else
     echo "::error::[${label}] Failed. Verify the URL and credentials."
@@ -197,7 +196,6 @@ send_channel() {
 }
 
 # ─── Named channel dispatch ────────────────────────────────────────────────────
-# 修复核心 Bug：使用 Action 相对路径
 TDIR="${ACTION_PATH}/templates"
 
 if [[ -n "${CHANNELS}" ]]; then
@@ -244,7 +242,8 @@ ${RELEASE_URL}"
     fi
 
     echo "📤 [generic:${local_scheme}] Sending..."
-    if python3 -m apprise --title "${TITLE}" --body "${generic_body}" --input-format "${fmt}" --notification-type "${NOTIFY_TYPE}" "${url}"; then
+    # 已经恢复为正确的 apprise 命令
+    if apprise --title "${TITLE}" --body "${generic_body}" --input-format "${fmt}" --notification-type "${NOTIFY_TYPE}" "${url}"; then
       echo "✅ [generic:${local_scheme}] Sent."
     else
       echo "::error::[generic:${local_scheme}] Failed. See Apprise docs for URL format."
