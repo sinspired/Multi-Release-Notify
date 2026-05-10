@@ -16,6 +16,7 @@ jobs:
               with:
                   version: v1.0.0
                   release_url: https://github.com/${{ github.repository }}/releases/tag/v1.0.0
+                  summary: "Initial release with multi-channel notification support"
                   release_notes: |
                       ## What's new
                       - Added multi-channel release notifications for Slack, Telegram, Bark, Ntfy, and DingTalk

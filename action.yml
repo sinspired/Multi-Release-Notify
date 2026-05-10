@@ -84,6 +84,13 @@ inputs:
     required: false
     default: ""
 
+  summary:
+    description: >
+      可选的简短摘要，显示在 Release Notes 上方。
+      适合首次发布或需要额外说明的场景。
+    required: false
+    default: ""
+
   release_notes:
     description: "Release body / changelog"
     required: false

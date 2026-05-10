@@ -1,5 +1,5 @@
-# Release Notes
+{SUMMARY_SECTION}# 📋 Release Notes
 
 {MESSAGE}
 
-[View on GitHub]({RELEASE_URL})
+[View on GitHub →]({RELEASE_URL})

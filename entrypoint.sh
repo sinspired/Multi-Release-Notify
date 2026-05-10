@@ -22,6 +22,9 @@ ICON_URL="${INPUT_ICON_URL:-https://github.githubassets.com/images/modules/logos
 ACTION_PATH="${GITHUB_ACTION_PATH:-.}"
 GITHUB_SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}"
 
+# ── 可选摘要，显示于 Release Notes 上方 ──────────────────────────────────
+SUMMARY="${INPUT_SUMMARY:-}"
+
 # ─── Guard ────────────────────────────────────────────────────────────────────
 if [[ -z "${URLS_INPUT}" \
    && -z "${INPUT_EMAIL_URL:-}" \
@@ -32,6 +35,39 @@ if [[ -z "${URLS_INPUT}" \
    && -z "${INPUT_DINGTALK_URL:-}" ]]; then
   echo "::error::No destination configured."
   exit 1
+fi
+
+# ─── Summary Section（按渠道格式预渲染，为空时各变量均为空字符串）────────────────
+SUMMARY_SECTION_HTML=""
+SUMMARY_SECTION_MD=""
+SUMMARY_SECTION_TG=""
+SUMMARY_SECTION_TEXT=""
+
+if [[ -n "${SUMMARY}" ]]; then
+
+  # Email HTML 格式：完整的 summary 卡片（复用 notes-card 样式，蓝色强调）
+  SUMMARY_SECTION_HTML=$(cat <<HEREDOC
+<div class="notes-card" style="margin-bottom:16px;">
+  <div class="notes-header">
+    <div class="dot" style="background:#58a6ff;"></div>
+    <span class="notes-label">Summary</span>
+  </div>
+  <div class="notes-body" style="color:#e6edf3;">
+    ${SUMMARY}
+  </div>
+</div>
+HEREDOC
+)
+
+  # Telegram HTML：加粗摘要 + 空行分隔
+  SUMMARY_SECTION_TG="<b>📋 ${SUMMARY}</b>"$'\n\n'
+
+  # Markdown（Ntfy / Slack / DingTalk）：加粗 + 分割线
+  SUMMARY_SECTION_MD="**📋 ${SUMMARY}**"$'\n\n'"---"$'\n\n'
+
+  # 纯文本（Bark）：分隔线
+  SUMMARY_SECTION_TEXT="${SUMMARY}"$'\n'"────────────"$'\n\n'
+
 fi
 
 # ─── VERSION ──────────────────────────────────────────────────────────────────
@@ -239,13 +275,31 @@ render_template() {
   local channel_label="$3"
 
   local processed_msg="$MESSAGE"
+  local summary_section=""
 
+  # HTML 格式需将 Markdown 转换为 HTML
   if [[ "$fmt" == "html" ]]; then
     processed_msg=$(convert_markdown "$channel_label" "$MESSAGE")
   fi
 
+  # 根据渠道选择对应格式的 summary 块
+  case "$channel_label" in
+    Telegram)            summary_section="${SUMMARY_SECTION_TG}"   ;;
+    Email)               summary_section="${SUMMARY_SECTION_HTML}"  ;;
+    Ntfy|Slack|DingTalk) summary_section="${SUMMARY_SECTION_MD}"   ;;
+    *)
+      # 通用 URL 回退：按 fmt 推断格式
+      if   [[ "$fmt" == "markdown" ]]; then summary_section="${SUMMARY_SECTION_MD}"
+      elif [[ "$fmt" == "html"     ]]; then summary_section="${SUMMARY_SECTION_HTML}"
+      else                                  summary_section="${SUMMARY_SECTION_TEXT}"
+      fi
+      ;;
+  esac
+
   TITLE="$TITLE" \
   MESSAGE="$processed_msg" \
+  SUMMARY="${SUMMARY}" \
+  SUMMARY_SECTION="${summary_section}" \
   STATUS="${STATUS,,}" \
   STATUS_TEXT="$STATUS_TEXT" \
   REPOSITORY="$REPOSITORY" \
@@ -260,15 +314,17 @@ with open(sys.argv[1], "r") as f:
     content = f.read()
 
 for placeholder, env_key in {
-    "{TITLE}": "TITLE",
-    "{MESSAGE}": "MESSAGE",
-    "{STATUS}": "STATUS",
-    "{STATUS_TEXT}": "STATUS_TEXT",
-    "{REPOSITORY}": "REPOSITORY",
-    "{AUTHOR}": "AUTHOR",
-    "{VERSION}": "VERSION",
-    "{RELEASE_URL}": "RELEASE_URL",
-    "{RELEASE_NOTES}": "RELEASE_NOTES",
+    "{TITLE}":           "TITLE",
+    "{MESSAGE}":         "MESSAGE",
+    "{SUMMARY}":         "SUMMARY",
+    "{SUMMARY_SECTION}": "SUMMARY_SECTION",
+    "{STATUS}":          "STATUS",
+    "{STATUS_TEXT}":     "STATUS_TEXT",
+    "{REPOSITORY}":      "REPOSITORY",
+    "{AUTHOR}":          "AUTHOR",
+    "{VERSION}":         "VERSION",
+    "{RELEASE_URL}":     "RELEASE_URL",
+    "{RELEASE_NOTES}":   "RELEASE_NOTES",
 }.items():
     content = content.replace(
         placeholder,
