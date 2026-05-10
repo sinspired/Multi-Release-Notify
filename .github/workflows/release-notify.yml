@@ -7,19 +7,15 @@ on:
     release:
         types: [published]
 
-    # 手动触发 — 可选填 version，留空则自动从最新 tag 检测
+    # 手动触发 — 可选填 channels（通知渠道）或 urls（通用Apprise URLs）
     workflow_dispatch:
         inputs:
-            version:
-                description: "版本号（如 v1.2.0），留空则自动从 git tag 检测"
-                required: false
-                default: ""
             channels:
-                description: "通知渠道（逗号分隔，如 email,telegram,slack）"
+                description: "通知渠道（逗号分隔，如 email,telegram,slack） — 可选，若提供了 urls 则可不填"
                 required: false
                 default: ""
             urls:
-                description: "通用 Apprise URLs（换行或逗号分隔）"
+                description: "通用 Apprise URLs（换行或逗号分隔） — 可选，若提供了 channels 则可不填"
                 required: false
                 default: ""
 

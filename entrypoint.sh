@@ -21,13 +21,8 @@ GITHUB_SERVER_URL="${GITHUB_SERVER_URL:-https://github.com}"
 
 # ─── Guard: require at least one destination ──────────────────────────────────
 if [[ -z "${CHANNELS}" && -z "${URLS_INPUT}" ]]; then
-  if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
-    CHANNELS="email,telegram,ntfy,slack"
-    echo "ℹ️  Using default channels for manual trigger: ${CHANNELS}"
-  else
-    echo "::error::No destination configured. Set 'channels' and/or 'urls'."
-    exit 1
-  fi
+  echo "::error::No destination configured. Set 'channels' and/or 'urls'."
+  exit 1
 fi
 
 # ─── VERSION ──────────────────────────────────────────────────────────────────
